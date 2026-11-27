@@ -12,7 +12,8 @@ import Calidad from './pages/Calidad.jsx';
 import Reportes from './pages/Reportes.jsx';
 import Admin from './pages/Admin.jsx';
 import ChatFlotante from './components/ChatFlotante.jsx';
-import Consultas from './pages/Consultas.jsx';
+import Registros from './pages/Registros.jsx';
+import Publicaciones from './pages/Publicaciones.jsx';
 import { Icon, Monogram } from './components/brand.jsx';
 import PeriodPicker from './components/PeriodPicker.jsx';
 
@@ -26,12 +27,13 @@ const PAGES = [
   { id: 'panel', label: 'Panel principal', icon: 'dashboard', min: 'publico', group: 'Consulta', C: Panel },
   { id: 'rankings', label: 'Rankings', icon: 'trophy', min: 'publico', group: 'Consulta', C: Rankings },
   { id: 'bancos', label: 'Bancos', icon: 'briefcase', min: 'publico', group: 'Consulta', C: Bancos },
+  { id: 'publicaciones', label: 'Publicaciones', icon: 'calendar', min: 'publico', group: 'Consulta', C: Publicaciones },
   { id: 'explorar', label: 'Filtros y subactividades', icon: 'filter', min: 'publico', group: 'Consulta', C: Explorar },
   { id: 'calidad', label: 'Calidad de datos', icon: 'check', min: 'publico', group: 'Consulta', C: Calidad },
   { id: 'reportes', label: 'Reportes y descargas', icon: 'download', min: 'publico', group: 'Consulta', C: Reportes },
   { id: 'comparar', label: 'Comparar períodos', icon: 'compare', min: 'publico', permiso: 'comparar_periodos', group: 'Análisis', C: Comparar },
+  { id: 'registros', label: 'Registros', icon: 'table', min: 'publico', permiso: 'consultar_registros', group: 'Análisis', C: Registros },
   { id: 'admin', label: 'Administración', icon: 'settings', min: 'administrador', group: 'Control', C: Admin },
-  { id: 'consultas', label: 'Consultas', icon: 'table', min: 'administrador', group: 'Control', C: Consultas },
 ];
 
 export default function App() {
@@ -139,10 +141,10 @@ export default function App() {
         <main>
           <ErrorBox error={metaError} />
           {!meta && !metaError && <Loading />}
-          {meta && meta.periodos.length === 0 && current.id !== 'admin' && current.id !== 'consultas' && (
+          {meta && meta.periodos.length === 0 && current.id !== 'admin' && (
             <div className="alert info">No hay períodos cargados. {user.perfil === 'administrador' ? 'Cargue un archivo AT03 en Administración.' : 'Un Administrador debe cargar un archivo AT03.'}</div>
           )}
-          {meta && (meta.periodos.length > 0 || current.id === 'admin' || current.id === 'consultas') && <Page key={current.id} ctx={ctx} />}
+          {meta && (meta.periodos.length > 0 || current.id === 'admin') && <Page key={current.id} ctx={ctx} />}
         </main>
       </div>
       <footer>

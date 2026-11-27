@@ -9,6 +9,22 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
+## (pendiente) — Administración: usuarios y roles, carga con confirmación, publicaciones y registros
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Cambios**
+- **Usuarios y roles** (`server/src/store/usuarios.js`, `server/src/api/usuarios.js`, `client/src/components/Usuarios.jsx`): el Administrador crea, edita (nombre, rol, contraseña), activa/desactiva y elimina usuarios del personal. Contraseñas cifradas con scrypt y sal en `data/usuarios.json` (agregado a `.gitignore`, R5). Los usuarios de `.env` siguen siendo los iniciales. No se puede quedar sin Administrador activo; cambiar rol, estado o contraseña cierra las sesiones del usuario. Todo queda en la bitácora.
+- **Carga pulida** (`client/src/pages/Admin.jsx`, `client/src/components/Confirmar.jsx`): pasos (elegir archivo → diagnóstico → listo) y diálogo de confirmación propio con tabla antes/después al importar, reemplazar, retirar (pide escribir RETIRAR), restaurar y reemplazar catálogos. Se eliminaron los `window.confirm`.
+- **Versiones por período** (`store.versiones`, `store.restaurarVersion`; `GET /api/admin/periods/:fecha/versiones`, `POST /api/admin/periods/:fecha/restaurar`): cada reemplazo guarda la versión anterior en `data/historial/` y se puede restaurar.
+- **Publicaciones** (`client/src/pages/Publicaciones.jsx`, `GET /api/publicaciones`): lista por corte, del más reciente al más antiguo, con estado, cartera, operaciones y acceso directo a rankings, calidad y CSV; el Administrador ve quién lo cargó, cuándo y cuántas versiones hay.
+- **Registros** (`client/src/pages/Registros.jsx`, `server/src/api/registros.js`, reemplaza "Consultas"): préstamos de cada corte con filtros (banco, actividad, subactividad, estado, regla E1–E4, mora, saldo mínimo, número), permiso `consultar_registros` (Analista por defecto, editable); sin datos del cliente salvo para el Administrador. Desde un préstamo se va al ranking o a la ficha del banco, y desde un ranking a los préstamos que suman ese saldo.
+- **Nombres SBP** (`fmtRankingSBP` en `client/src/format.js`): "Crédito Hipotecario", "Créditos para la Construcción", etc., para mostrar; cálculo y exportaciones siguen con `Macroactividad_Reto`.
+- **Rendimiento:** ordenar la consulta de préstamos bajó de ~5 s a ~0.2 s (comparación numérica y comparador de texto reutilizado).
+
+**Verificación:** `npm test` 56 de 56 (nuevo `server/test/administracion.test.js`: alta e ingreso de usuarios, contraseña cifrada, duplicados y reservados, permisos, desactivar cierra sesión, último Administrador, registros sin datos del cliente, publicaciones, reemplazo y restauración de versiones). Recorrido en navegador como Administrador.
+
+---
+
 ## (pendiente) — Asistente SBP: chat flotante con contexto de pantalla y guía
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 

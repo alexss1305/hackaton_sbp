@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { irCon, tomarFoco } from '../foco.js';
 import { usePublicarSeleccion } from '../asistenteContexto.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useApi, ErrorBox, Loading, SortableTable, ChartTooltip, Legend } from '../components/ui.jsx';
@@ -7,8 +8,10 @@ import { fmtMoney, fmtMoneyCompact, fmtPct, fmtInt, fmtCorte, fmtRanking, sumMon
 
 export default function Rankings({ ctx }) {
   const { meta, fecha } = ctx;
-  const [ranking, setRanking] = useState(meta.rankings[0]);
-  const [banco, setBanco] = useState('');
+  const [foco] = useState(() => tomarFoco('rankings'));
+  const [ranking, setRanking] = useState(foco?.ranking || meta.rankings[0]);
+  const [banco, setBanco] = useState(foco?.banco || '');
+  useEffect(() => { if (foco?.fecha && foco.fecha !== ctx.fecha) ctx.setFecha(foco.fecha); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { data, error, loading } = useApi(`/periods/${fecha}/rankings?ranking=${ranking}`);
   const subs = useApi(`/periods/${fecha}/subactividades${qs({ rankings: [ranking] })}`);
   const rows = data?.[ranking] || [];
@@ -64,6 +67,9 @@ export default function Rankings({ ctx }) {
             <div className="card">
               <h2>Desglose por actividad</h2>
               <p className="sub">{selRow ? `${selRow.Banco} / puesto ${selRow.Posicion} / ${fmtPct(selRow.Ponderacion_Pct)} de su cartera` : ''}</p>
+              {selRow && ctx.puede('consultar_registros') && (
+                <button className="btn" style={{ marginBottom: 10 }} onClick={() => irCon(ctx.goTo, 'registros', { fecha, banco: selRow.Codigo_Banco, actividad: ranking, estado: 'valida' })}>Ver los {fmtInt(selRow.Operaciones_Validas)} préstamos que suman este saldo →</button>
+              )}
               {selRow && (
                 <>
                   <SubBar rows={subRows} />

@@ -1,7 +1,9 @@
 import express from 'express';
 import { comparacionRouter } from './comparacion.js';
 import { bancosRouter } from './bancos.js';
-import { authenticate, requirePerfil, login, logout, cambiarContrasena, PERFILES, esPerfil } from './auth.js';
+import { authenticate, requirePerfil, login, logout, cambiarContrasena, crearSesion, PERFILES, esPerfil } from './auth.js';
+import { usuariosRouter } from './usuarios.js';
+import { registrosRouter } from './registros.js';
 import { compareRankings } from '../engine/compare.js';
 import * as X from '../engine/exports.js';
 import { toCsv } from '../engine/csv.js';
@@ -37,13 +39,19 @@ export function buildRouter(store, passwords) {
   r.post('/auth/login', express.json(), (req, res) => {
     const { perfil, password, usuario } = req.body || {};
     if (!esPerfil(perfil)) return res.status(400).json({ error: 'Perfil inválido.' });
-    const token = login(passwords, perfil, password, usuario);
+    // Primero los usuarios iniciales de .env; luego los creados por el Administrador (data/usuarios.json)
+    let token = login(passwords, perfil, password, usuario);
+    if (!token && perfil !== 'publico') {
+      const u = store.usuarios.verificar(usuario, password, perfil);
+      if (u) token = crearSesion(perfil, u.usuario);
+    }
     if (!token) return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     store.addLog(perfil, 'Inicio de sesión', `Perfil ${PERFILES[perfil].nombre}${usuario ? ` · usuario ${String(usuario).trim().toLowerCase()}` : ''}`);
     res.json({ token, perfil, nombre: PERFILES[perfil].nombre });
   });
   r.post('/auth/logout', (req, res) => { if (req.token) logout(req.token); res.json({ ok: true }); });
-  r.get('/auth/me', (req, res) => res.json({ perfil: req.perfil, nombre: PERFILES[req.perfil].nombre, permisos: store.permisosDe(req.perfil) }));
+  r.get('/auth/me', (req, res) => res.json({ perfil: req.perfil, nombre: PERFILES[req.perfil].nombre, usuario: req.usuario || null, permisos: store.permisosDe(req.perfil) }));
+  r.get('/publicaciones', (req, res) => res.json(store.publicaciones()));
 
   // ---------- Consulta (todos los perfiles) ----------
   r.get('/meta', (req, res) => {
@@ -166,6 +174,10 @@ export function buildRouter(store, passwords) {
     const d = diagnosticarAt03(req.body, nombre, store.catalogs, { maxEjemplos: Infinity });
     sendCsv(res, `diagnostico_${nombre.replace(/\.csv$/i, '')}.csv`, toCsv(hallazgosPlano(d), ['Gravedad', 'Regla', 'Campo', 'Total_En_Archivo', 'Linea', 'Valor', 'Esperado', 'Sugerencia']), { bom: req.query.bom === '1' });
   }));
+  r.get('/admin/periods/:fecha/versiones', admin, wrap((req, res) => { store.period(req.params.fecha); res.json(store.versiones(req.params.fecha)); }));
+  r.post('/admin/periods/:fecha/restaurar', admin, express.json(), wrap((req, res) => res.json(store.restaurarVersion(req.params.fecha, String(req.body?.archivo || ''), req.perfil))));
+  r.use(usuariosRouter(store, passwords, admin));
+  r.use(registrosRouter(store, permiso));
   r.delete('/admin/periods/:fecha', admin, wrap((req, res) => { store.deletePeriod(req.params.fecha, req.perfil); res.json({ ok: true }); }));
   r.post('/admin/recalculate', admin, (req, res) => {
     store.recalculate(); store.addLog(req.perfil, 'Recálculo manual', `${store.periods.length} períodos en ${store.lastDurationMs} ms`);
