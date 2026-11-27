@@ -59,11 +59,6 @@ export default function Rankings({ ctx }) {
           </div>
 
           <div>
-            <div className="card" style={{ marginBottom: 16 }}>
-              <h2>Total</h2>
-              <p className="sub">Suma de los saldos de esta actividad en el corte. La ponderación se informa por banco, no para este total.</p>
-              <p className="value" style={{ fontSize: 22, fontWeight: 700 }}>{fmtMoney(totalActividad)}</p>
-            </div>
             <div className="card">
               <h2>Desglose por actividad</h2>
               <p className="sub">{selRow ? `${selRow.Banco} / puesto ${selRow.Posicion} / ${fmtPct(selRow.Ponderacion_Pct)} de su cartera` : ''}</p>
@@ -83,6 +78,11 @@ export default function Rankings({ ctx }) {
                   <p className="muted" style={{ fontSize: 12 }}>Suma de subactividades = {fmtMoney(sumMoney(subRows.map((s) => s.Saldo)))} / Saldo de la actividad = {fmtMoney(selRow.Saldo_Actividad)}</p>
                 </>
               )}
+            </div>
+            <div className="card" style={{ marginTop: 16 }}>
+              <h2>Total de la actividad</h2>
+              <p className="sub">Suma de los saldos de los 12 bancos en esta actividad y corte. La ponderación se informa por banco, no para este total.</p>
+              <p className="value" style={{ fontSize: 22, fontWeight: 700 }}>{fmtMoney(totalActividad)}</p>
             </div>
           </div>
         </div>

@@ -9,6 +9,19 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
+## (pendiente) — Consulta: fichas de bancos, panel y filtros
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Cambios**
+- **Módulo Bancos** (`client/src/pages/Bancos.jsx`, `server/src/engine/bancos.js`, `server/src/api/bancos.js` → `GET /api/bancos`, `GET /api/bancos/:codigo`): tarjetas tipo contacto de los 12 bancos (cartera, variación, puesto por tamaño, posición en los 6 rankings, morosidad con semáforo, actividades que lidera) con búsqueda y orden; ficha por pasos (resumen, rankings, subactividades, calidad de cartera con vencimientos, evolución). El banco se identifica siempre por `Codigo_Banco` del catálogo.
+- **Panel:** la tarjeta "Reconciliaciones" pasa a un distintivo "Datos verificados" que lleva a Calidad; nuevos KPI de variación del sistema y morosidad; tarjetas de bancos en lugar del texto al pasar el mouse; clic en la cartera por banco abre la ficha; calidad de cartera con mini barras y semáforo; texto de morosidad aclarado.
+- **Rankings:** el total de la actividad queda debajo del desglose.
+- **Filtros y subactividades:** varios cortes, actividades, subactividades y bancos a la vez; saldo mínimo y máximo; top N de bancos; agrupar por y dividir por (banco, subactividad, actividad, corte); gráficos de barras apiladas, participación 100%, dona y evolución; KPI del total visible.
+
+**Verificación:** `npm test` 49 de 49 (nuevo `server/test/bancos.test.js`: 12 bancos, cartera igual al denominador oficial, R1–R3 en la ficha, 404 para un código fuera del catálogo). Recorrido en navegador como Analista sin errores.
+
+---
+
 ## (pendiente) — Comparación avanzada del Analista
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 

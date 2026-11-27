@@ -5,6 +5,7 @@ import { ErrorBox, Loading } from './components/ui.jsx';
 import Login from './pages/Login.jsx';
 import Panel from './pages/Panel.jsx';
 import Rankings from './pages/Rankings.jsx';
+import Bancos from './pages/Bancos.jsx';
 import Explorar from './pages/Explorar.jsx';
 import Comparar from './pages/Comparar.jsx';
 import Calidad from './pages/Calidad.jsx';
@@ -24,6 +25,7 @@ const NIVEL = { publico: 1, analista: 2, administrador: 3 };
 const PAGES = [
   { id: 'panel', label: 'Panel principal', icon: 'dashboard', min: 'publico', group: 'Consulta', C: Panel },
   { id: 'rankings', label: 'Rankings', icon: 'trophy', min: 'publico', group: 'Consulta', C: Rankings },
+  { id: 'bancos', label: 'Bancos', icon: 'briefcase', min: 'publico', group: 'Consulta', C: Bancos },
   { id: 'explorar', label: 'Filtros y subactividades', icon: 'filter', min: 'publico', group: 'Consulta', C: Explorar },
   { id: 'calidad', label: 'Calidad de datos', icon: 'check', min: 'publico', group: 'Consulta', C: Calidad },
   { id: 'reportes', label: 'Reportes y descargas', icon: 'download', min: 'publico', group: 'Consulta', C: Reportes },
