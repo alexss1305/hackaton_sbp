@@ -1,4 +1,5 @@
 import express from 'express';
+import { comparacionRouter } from './comparacion.js';
 import { authenticate, requirePerfil, login, logout, cambiarContrasena, PERFILES, esPerfil } from './auth.js';
 import { compareRankings } from '../engine/compare.js';
 import * as X from '../engine/exports.js';
@@ -124,6 +125,7 @@ export function buildRouter(store, passwords) {
   }));
 
   // ---------- Análisis (Analista y Administrador) ----------
+  r.use(comparacionRouter(store, permiso));
   r.get('/comparisons', permiso('comparar_periodos'), (req, res) => {
     res.json(store.comparisons.map((c) => ({ desde: c.desde, hasta: c.hasta, tipo: c.tipo, significativos: c.movimientos.filter((m) => m.Significativo).length })));
   });
