@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { usePublicarSeleccion } from '../asistenteContexto.js';
 import { useApi, ErrorBox, Loading } from '../components/ui.jsx';
 import { Icon } from '../components/brand.jsx';
 import BancoCard from '../components/BancoCard.jsx';
@@ -20,6 +21,7 @@ export default function Bancos({ ctx }) {
   const [buscar, setBuscar] = useState('');
   const [orden, setOrden] = useState('cartera');
   const [sel, setSel] = useState(null);
+  usePublicarSeleccion({ banco_codigo: sel || '', banco: (data?.bancos || []).find((b) => b.codigo === sel)?.nombre || '', busqueda: buscar, orden });
 
   const promedio = useMemo(() => {
     const b = data?.bancos || [];

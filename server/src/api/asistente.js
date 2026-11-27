@@ -3,6 +3,8 @@
  * No calcula rankings. La clave GEMINI_API_KEY vive solo en .env.
  */
 import { compareRankings } from '../engine/compare.js';
+import { listaBancos } from '../engine/bancos.js';
+import { guiaPara, buscarGuia } from './guia-sistema.js';
 
 // Alias que Google mantiene apuntando al modelo Flash vigente (los nombres con versión se retiran con el tiempo)
 const MODEL = () => process.env.GEMINI_MODEL || 'gemini-flash-latest';
@@ -11,16 +13,21 @@ const MAX_TURNOS = 6;
 
 export const asistenteDisponible = () => Boolean(process.env.GEMINI_API_KEY);
 
-const SYSTEM = `Eres el asistente de la plataforma "Rankings de Crédito por Actividad Económica" del Hackathon SBP 2026 (Superintendencia de Bancos de Panamá).
-Tu función es EXPLICAR y AYUDAR A EXPLORAR resultados que ya calculó un motor determinista. Reglas:
-- Usa EXCLUSIVAMENTE los datos del bloque <datos>. No inventes cifras, bancos, períodos ni causas que no estén en los datos.
-- No recalcules rankings, posiciones, saldos ni ponderaciones: cítalos tal como aparecen. Puedes describir comparaciones evidentes (mayor/menor, sube/baja) y citar diferencias que ya vengan calculadas (Var_Saldo, Var_Saldo_Pct, Cambio_Posicion).
-- Si la pregunta no se puede responder con los datos, dilo claramente y sugiere qué pantalla de la plataforma consultar (Rankings, Filtros y subactividades, Calidad de datos, Comparar períodos, Reportes).
-- Todos los bancos y clientes son ficticios; los datos son sintéticos. No des recomendaciones de inversión ni opiniones regulatorias formales.
-- Responde en español, breve y claro (máximo ~200 palabras). Montos con signo de dólar y separador de miles.`;
+const SYSTEM = `Eres "Asistente SBP", el asistente personal de la plataforma "Ranking de Créditos por Actividad Económica" (Hackathon SBP 2026, Superintendencia de Bancos de Panamá).
+Tienes dos funciones:
+1) GUIAR al usuario en el uso de la plataforma con los pasos del bloque <guia>. Si pregunta "cómo hago…", responde con pasos numerados concretos (menú, botón, campo). Solo ofrece funciones de su perfil (campo "perfil"); si pide algo de un perfil superior, explica que requiere ese perfil.
+2) EXPLICAR y AYUDAR A EXPLORAR resultados que ya calculó un motor determinista, usando EXCLUSIVAMENTE el bloque <datos>.
+Reglas:
+- No inventes cifras, bancos, períodos ni causas. No recalcules rankings, posiciones, saldos ni ponderaciones: cítalos tal como aparecen.
+- Ten en cuenta la pantalla actual ("pantalla") y lo que el usuario tiene seleccionado ("seleccion"): si pregunta "esto", "este banco" o "lo que veo", se refiere a esa selección.
+- Si no se puede responder con los datos, dilo y sugiere qué pantalla consultar.
+- Los datos son sintéticos y los bancos ficticios. No des recomendaciones de inversión ni opiniones regulatorias formales.
+- Responde en español, breve y claro (máximo ~200 palabras), con viñetas o pasos cuando ayuden. Montos con signo de dólar y separador de miles.`;
 
-function buildContext(store, fecha) {
-  const p = store.period(fecha);
+/** Arma el contexto que se envía al modelo: datos ya calculados + pantalla, selección, perfil y guía. */
+export function construirContexto(store, { fecha, pantalla = null, seleccion = {}, perfil = 'publico' } = {}) {
+  const p = store.period(fecha || store.periods.at(-1)?.fecha);
+  fecha = p.fecha;
   const idx = store.periods.findIndex((x) => x.fecha === fecha);
   const prev = idx > 0 ? store.periods[idx - 1] : null;
   const rankings = Object.fromEntries(Object.entries(p.rankings).map(([rk, rows]) => [rk,
@@ -42,18 +49,46 @@ function buildContext(store, fecha) {
     subactividades,
     movimientos_vs_periodo_anterior: movimientos,
     indicadores: p.indicadores,
+    pantalla,
+    perfil,
+    seleccion: limpiarSeleccion(seleccion),
+    bancos_resumen: listaBancos(store.periods, store.catalogs, fecha).bancos.map((b) => ({
+      Codigo: b.codigo, Banco: b.nombre, Cartera: b.cartera, Puesto_por_tamano: b.puestoCartera, Var_Cartera_Pct: b.varCarteraPct,
+      Morosidad_Pct: b.morosidadPct, Lidera: b.lidera,
+    })),
   };
 }
 
-export async function preguntar(store, { fecha, pregunta, historial = [] }) {
-  if (!asistenteDisponible()) {
-    const e = new Error('El asistente de IA no está configurado: falta GEMINI_API_KEY en el archivo .env del servidor.'); e.status = 503; throw e;
+/** Solo campos simples y cortos de la selección de pantalla (evita enviar objetos grandes o arbitrarios). */
+function limpiarSeleccion(sel) {
+  const out = {};
+  for (const [k, v] of Object.entries(sel && typeof sel === 'object' ? sel : {}).slice(0, 12)) {
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') out[k] = String(v).slice(0, 120);
+    else if (Array.isArray(v)) out[k] = v.slice(0, 12).map((x) => String(x).slice(0, 60));
   }
+  return out;
+}
+
+/** Respuesta sin IA a partir de la guía (cuando no hay clave configurada). */
+export function respuestaGuia(pregunta, perfil, pantalla) {
+  const r = buscarGuia(pregunta, perfil, pantalla);
+  if (!r) {
+    const temas = guiaPara(perfil).map((g) => `- ${g.titulo}`).join('\n');
+    return `El asistente de IA no está configurado, pero puedo guiarle en el uso de la plataforma. Pregúnteme por alguno de estos temas:\n${temas}`;
+  }
+  if (!r.permitida) return `**${r.seccion.titulo}** requiere el perfil ${r.seccion.perfil === 'administrador' ? 'Administrador' : 'Analista'}. Ingrese con ese perfil para usar esta función.`;
+  return `**${r.seccion.titulo}**\n${r.seccion.pasos.map((x, i) => `${i + 1}. ${x}`).join('\n')}`;
+}
+
+export async function preguntar(store, { fecha, pregunta, historial = [], pantalla = null, seleccion = {}, perfil = 'publico' }) {
   const q = String(pregunta ?? '').trim();
   if (!q) { const e = new Error('Escriba una pregunta.'); e.status = 400; throw e; }
   if (q.length > MAX_PREGUNTA) { const e = new Error(`La pregunta supera ${MAX_PREGUNTA} caracteres.`); e.status = 400; throw e; }
+  // Sin clave de IA: modo guía determinista (sigue siendo útil para aprender a usar la plataforma)
+  if (!asistenteDisponible()) return { respuesta: respuestaGuia(q, perfil, pantalla), modelo: 'guia' };
 
-  const contexto = buildContext(store, fecha);
+  const contexto = construirContexto(store, { fecha, pantalla, seleccion, perfil });
+  const guia = guiaPara(perfil).map((g) => ({ titulo: g.titulo, pantalla: g.pantalla, pasos: g.pasos }));
   const previos = (Array.isArray(historial) ? historial : [])
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
     .slice(-MAX_TURNOS * 2)
@@ -68,7 +103,7 @@ export async function preguntar(store, { fecha, pregunta, historial = [] }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [...previos, { role: 'user', parts: [{ text: `<datos>\n${JSON.stringify(contexto)}\n</datos>\n\nPregunta: ${q}` }] }],
+        contents: [...previos, { role: 'user', parts: [{ text: `<guia>\n${JSON.stringify(guia)}\n</guia>\n<datos>\n${JSON.stringify(contexto)}\n</datos>\n\nPregunta: ${q}` }] }],
         generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
       }),
     });

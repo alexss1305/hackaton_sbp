@@ -13,7 +13,7 @@ export const PERMISOS = [
   { clave: 'descargar_alertas', grupo: 'Descargas', label: 'Descargar alertas de calidad', defecto: ['analista'] },
   { clave: 'comparar_periodos', grupo: 'Análisis', label: 'Comparar períodos y entidades (movimientos y evolución)', defecto: ['analista'] },
   { clave: 'descargar_movimientos', grupo: 'Análisis', label: 'Descargar reporte de movimientos (entregable 5)', defecto: ['analista'] },
-  { clave: 'asistente_ia', grupo: 'Análisis', label: 'Usar el asistente de IA (explica resultados ya calculados)', defecto: ['analista'] },
+  { clave: 'asistente_ia', grupo: 'Análisis', label: 'Usar el asistente (explica resultados y guía el uso de la plataforma)', defecto: ['publico', 'analista'] },
 ];
 
 export const CLAVES = PERMISOS.map((p) => p.clave);

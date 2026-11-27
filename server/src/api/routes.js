@@ -148,7 +148,7 @@ export function buildRouter(store, passwords) {
 
   // ---------- Asistente de IA (explica resultados ya calculados) ----------
   r.post('/asistente', permiso('asistente_ia'), express.json({ limit: '200kb' }), async (req, res, next) => {
-    try { res.json(await preguntar(store, req.body || {})); } catch (e) { next(e); }
+    try { res.json(await preguntar(store, { ...(req.body || {}), perfil: req.perfil })); } catch (e) { next(e); }
   });
 
   // ---------- Administración ----------

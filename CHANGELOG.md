@@ -9,6 +9,20 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
+## (pendiente) — Asistente SBP: chat flotante con contexto de pantalla y guía
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Cambios**
+- **Chat flotante** (`client/src/components/ChatFlotante.jsx`, `chat.css`): botón fijo abajo a la derecha en todas las pantallas; panel con minimizar, nueva conversación, sugerencias según la pantalla, historial en la sesión, indicador de escritura y formato (títulos, viñetas, pasos numerados). Reemplaza la página "Asistente IA".
+- **Contexto de pantalla** (`client/src/asistenteContexto.js`): Panel, Rankings, Bancos, Filtros y Comparar publican lo que el usuario tiene seleccionado; el chat lo envía con cada pregunta.
+- **Servidor** (`server/src/api/asistente.js`): rol de asistente personalizado; el perfil se toma de la sesión (no del cliente); contexto con pantalla, selección saneada y resumen de bancos; **modo guía sin IA** cuando no hay `GEMINI_API_KEY`.
+- **Guía del sistema** (`server/src/api/guia-sistema.js`): 13 funciones con pasos y perfil mínimo; búsqueda por raíz de palabra.
+- **Permisos:** el asistente queda activo también para Público por defecto (sigue siendo configurable).
+
+**Verificación:** `npm test` 51 de 51 (nuevo `server/test/asistente.test.js` y prueba de API en modo guía). Consulta real con Gemini desde la pantalla Rankings: respondió sobre el ranking y el banco seleccionados con cifras del cálculo.
+
+---
+
 ## (pendiente) — Consulta: fichas de bancos, panel y filtros
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 
