@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Contador } from './efectos.jsx';
 import { api } from '../api.js';
 
 /** Carga datos de la API y vuelve a cargar cuando cambian las dependencias. */
@@ -26,10 +27,12 @@ export function ErrorBox({ error }) {
   );
 }
 
-export const Loading = () => <div className="muted">Cargando…</div>;
+export const Loading = () => (
+  <div className="sk-lines" aria-busy="true" aria-label="Cargando"><i /><i /><i /></div>
+);
 
 export function Kpi({ label, value, hint }) {
-  return <div className="kpi"><div className="label">{label}</div><div className="value">{value}</div>{hint && <div className="hint">{hint}</div>}</div>;
+  return <div className="kpi"><div className="label">{label}</div><div className="value"><Contador value={value} /></div>{hint && <div className="hint">{hint}</div>}</div>;
 }
 
 export function Badge({ ok, children, kind }) {

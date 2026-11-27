@@ -1,3 +1,4 @@
+import { avisar } from './components/efectos.jsx';
 /** Cliente HTTP de la API. El token de sesión se guarda en sessionStorage (se borra al cerrar la pestaña). */
 const TOKEN_KEY = 'sbp-token';
 export const getToken = () => sessionStorage.getItem(TOKEN_KEY);
@@ -38,6 +39,7 @@ export async function download(path, fallbackName = 'export.csv', opts = {}) {
   a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
+  avisar(`Descargando ${name}`);
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
