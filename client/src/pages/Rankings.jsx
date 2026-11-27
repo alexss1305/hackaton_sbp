@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { useApi, ErrorBox, Loading, SortableTable, ChartTooltip, Select, Legend } from '../components/ui.jsx';
+import { useApi, ErrorBox, Loading, SortableTable, ChartTooltip, Legend } from '../components/ui.jsx';
 import { download, qs } from '../api.js';
-import { fmtMoney, fmtPct, fmtCompact, fmtInt, fmtPeriodo, fmtRanking, SERIES } from '../format.js';
+import { fmtMoney, fmtMoneyCompact, fmtPct, fmtInt, fmtCorte, fmtRanking, sumMoney, SERIES } from '../format.js';
 
 export default function Rankings({ ctx }) {
   const { meta, fecha } = ctx;
@@ -13,6 +13,7 @@ export default function Rankings({ ctx }) {
   const rows = data?.[ranking] || [];
   const sel = banco || rows[0]?.Codigo_Banco;
   const selRow = rows.find((r) => r.Codigo_Banco === sel);
+  const totalActividad = sumMoney(rows.map((r) => r.Saldo_Actividad));
 
   const subRows = useMemo(() => (subs.data || []).filter((s) => s.Codigo_Banco === sel), [subs.data, sel]);
   const chartData = rows.map((r) => ({ ...r, saldo: Number(r.Saldo_Actividad), label: `${r.Posicion}. ${r.Banco}` }));
@@ -22,29 +23,31 @@ export default function Rankings({ ctx }) {
       <div className="page-head">
         <div>
           <h1>Consulta de rankings</h1>
-          <p>Posición de cada banco por saldo de la actividad (mayor saldo = posición 1; empate por código de banco). Ponderación = saldo de la actividad / cartera local válida total del banco.</p>
+          <p>Los bancos están ordenados de mayor a menor saldo. El primer lugar es el banco con mayor saldo en esta actividad.</p>
         </div>
-        {ctx.puede('descargar_rankings') && <button className="btn" onClick={() => download(`/export/rankings.csv${qs({ fechas: [fecha], rankings: [ranking] })}`)}>⬇ Descargar CSV</button>}
+        {ctx.puede('descargar_rankings') && <button className="btn" onClick={() => download(`/export/rankings.csv${qs({ fechas: [fecha], rankings: [ranking] })}`)}>Descargar CSV</button>}
       </div>
 
       <div className="toolbar">
-        <div className="tabs" role="tablist" aria-label="Ranking">
-          {meta.rankings.map((r) => <button key={r} role="tab" aria-selected={r === ranking} className={r === ranking ? 'active' : ''} onClick={() => setRanking(r)}>{fmtRanking(r)}</button>)}
+        <div>
+          <p className="cat-label">Categorías</p>
+          <div className="tabs" role="tablist" aria-label="Categorías">
+            {meta.rankings.map((r) => <button key={r} role="tab" aria-selected={r === ranking} className={r === ranking ? 'active' : ''} onClick={() => { setRanking(r); setBanco(''); }}>{fmtRanking(r)}</button>)}
+          </div>
         </div>
-        <Select label="Resaltar banco" value={sel || ''} onChange={setBanco} options={meta.bancos.map((b) => ({ value: b.codigo, label: `${b.codigo} · ${b.nombre}` }))} />
       </div>
 
       <ErrorBox error={error} />
       {loading ? <Loading /> : (
         <div className="grid g2">
           <div className="card">
-            <h2>{fmtRanking(ranking)} · {fmtPeriodo(fecha)}</h2>
-            <p className="sub">Saldo de la actividad por banco. Haga clic en una barra o fila para ver su desglose.</p>
+            <h2>{fmtRanking(ranking)} / {fmtCorte(fecha)}</h2>
+            <p className="sub">Saldo de la actividad por banco. Elija una barra o una fila para ver su desglose.</p>
             <div className="chart tall">
               <ResponsiveContainer>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }} barCategoryGap={2}>
                   <CartesianGrid horizontal={false} />
-                  <XAxis type="number" tickFormatter={fmtCompact} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tickFormatter={fmtMoneyCompact} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="label" width={170} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip valueFormatter={fmtMoney} />} />
                   <Bar dataKey="saldo" name="Saldo de la actividad" radius={[0, 4, 4, 0]} onClick={(d) => setBanco(d.Codigo_Banco)} cursor="pointer">
@@ -55,25 +58,32 @@ export default function Rankings({ ctx }) {
             </div>
           </div>
 
-          <div className="card">
-            <h2>Desglose por subactividad</h2>
-            <p className="sub">{selRow ? `${selRow.Banco} · posición ${selRow.Posicion} · ${fmtPct(selRow.Ponderacion_Pct)} de su cartera` : ''}</p>
-            {selRow && (
-              <>
-                <SubBar rows={subRows} />
-                <SortableTable
-                  rows={subRows}
-                  rowKey={(r) => r.Subactividad}
-                  columns={[
-                    { key: 'Subactividad', label: 'Subactividad' },
-                    { key: 'Saldo', label: 'Saldo', num: true, render: (r) => fmtMoney(r.Saldo) },
-                    { key: 'pct', label: '% del ranking', num: true, sortValue: (r) => Number(r.Saldo), render: (r) => fmtPct((Number(r.Saldo) / Number(selRow.Saldo_Actividad || 1)) * 100, 2) },
-                    { key: 'Operaciones', label: 'Operaciones', num: true },
-                  ]}
-                />
-                <p className="muted" style={{ fontSize: 12 }}>Suma de subactividades = {fmtMoney(subRows.reduce((a, s) => a + Math.round(Number(s.Saldo) * 100), 0) / 100)} · Saldo de la actividad = {fmtMoney(selRow.Saldo_Actividad)} (reconciliación 1)</p>
-              </>
-            )}
+          <div>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <h2>Total</h2>
+              <p className="sub">Suma de los saldos de esta actividad en el corte. La ponderación se informa por banco, no para este total.</p>
+              <p className="value" style={{ fontSize: 22, fontWeight: 700 }}>{fmtMoney(totalActividad)}</p>
+            </div>
+            <div className="card">
+              <h2>Desglose por actividad</h2>
+              <p className="sub">{selRow ? `${selRow.Banco} / puesto ${selRow.Posicion} / ${fmtPct(selRow.Ponderacion_Pct)} de su cartera` : ''}</p>
+              {selRow && (
+                <>
+                  <SubBar rows={subRows} />
+                  <SortableTable
+                    rows={subRows}
+                    rowKey={(r) => r.Subactividad}
+                    columns={[
+                      { key: 'Subactividad', label: 'Subactividad' },
+                      { key: 'Saldo', label: 'Saldo', num: true, render: (r) => fmtMoney(r.Saldo) },
+                      { key: 'pct', label: 'Parte del saldo', num: true, sortValue: (r) => Number(r.Saldo), render: (r) => fmtPct((Number(r.Saldo) / Number(selRow.Saldo_Actividad || 1)) * 100, 2) },
+                      { key: 'Operaciones', label: 'Operaciones', num: true },
+                    ]}
+                  />
+                  <p className="muted" style={{ fontSize: 12 }}>Suma de subactividades = {fmtMoney(sumMoney(subRows.map((s) => s.Saldo)))} / Saldo de la actividad = {fmtMoney(selRow.Saldo_Actividad)}</p>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -91,8 +101,8 @@ export default function Rankings({ ctx }) {
             { key: 'Posicion', label: 'Posición', num: true, render: (r) => <span className={`pos ${r.Posicion === 1 ? 'p1' : ''}`}>{r.Posicion}</span> },
             { key: 'Codigo_Banco', label: 'Código' },
             { key: 'Banco', label: 'Banco' },
-            { key: 'Saldo_Actividad', label: 'Saldo actividad', num: true, render: (r) => fmtMoney(r.Saldo_Actividad) },
-            { key: 'Total_Cartera_Local_Valida', label: 'Total cartera local válida', num: true, render: (r) => fmtMoney(r.Total_Cartera_Local_Valida) },
+            { key: 'Saldo_Actividad', label: 'Saldo de la actividad', num: true, render: (r) => fmtMoney(r.Saldo_Actividad) },
+            { key: 'Total_Cartera_Local_Valida', label: 'Cartera local', num: true, render: (r) => fmtMoney(r.Total_Cartera_Local_Valida) },
             { key: 'Ponderacion_Pct', label: 'Ponderación', num: true, render: (r) => fmtPct(r.Ponderacion_Pct) },
             { key: 'Operaciones_Validas', label: 'Operaciones', num: true, render: (r) => fmtInt(r.Operaciones_Validas) },
           ]}
@@ -102,7 +112,6 @@ export default function Rankings({ ctx }) {
   );
 }
 
-/** Barra apilada horizontal con la composición por subactividad (≤ 6 segmentos, colores en orden fijo). */
 function SubBar({ rows }) {
   const total = rows.reduce((a, r) => a + Number(r.Saldo), 0);
   if (!total) return <p className="muted">Este banco no tiene saldo en esta actividad.</p>;

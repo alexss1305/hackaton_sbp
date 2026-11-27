@@ -140,9 +140,23 @@ test('permisos editables: el Administrador quita y concede permisos por perfil',
 test('asistente de IA: requiere permiso y responde 503 claro si no hay clave configurada', async () => {
   const body = JSON.stringify({ fecha: '20260831', pregunta: '¿Quién lidera HIPOTECARIO?' });
   assert.equal((await fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, 403);
-  if (process.env.ANTHROPIC_API_KEY) return; // con clave real no se llama al servicio en las pruebas
+  if (process.env.GEMINI_API_KEY) return; // con clave real no se llama al servicio en las pruebas
   const t = await login('analista', PW.analista);
   const r = await fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body });
   assert.equal(r.status, 503);
-  assert.match((await r.json()).error, /ANTHROPIC_API_KEY/);
+  assert.match((await r.json()).error, /GEMINI_API_KEY/);
+});
+
+test('consultas de operaciones: solo el administrador', async () => {
+  assert.equal((await fetch(`${base}/admin/operaciones?fecha=20260731`)).status, 403);
+  const ta = await login('analista', PW.analista);
+  assert.equal((await fetch(`${base}/admin/operaciones?fecha=20260731`, { headers: { Authorization: `Bearer ${ta}` } })).status, 403);
+  const t = await login('administrador', PW.administrador);
+  const r = await fetch(`${base}/admin/operaciones?fecha=20260731&pageSize=5`, { headers: { Authorization: `Bearer ${t}` } });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.rows.length, 5);
+  assert.ok(body.total > 5);
+  assert.ok(body.rows[0].Numero_Prestamo);
+  assert.ok(body.rows[0].Estado === 'valida' || body.rows[0].Estado === 'excluida');
 });

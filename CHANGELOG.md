@@ -77,14 +77,14 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 - **Reporte de calidad:** columnas `Indep_E1..Indep_E4` con el conteo independiente de cada regla, rotulado como informativo.
 - **Carga segura** (`server/src/store/store.js`): se rechaza una carga que retiraría otros períodos, y un archivo con el mismo nombre que otro de un mes distinto se guarda con otro nombre en vez de sobrescribirlo.
 - **Perfiles y permisos editables (lámina 6):** `server/src/api/permisos.js`, matriz en *Administración → Perfiles y permisos*, persistida en `data/permisos.json`. El servidor la aplica en cada ruta; las funciones de Administrador no se pueden delegar.
-- **Asistente de IA (criterio 6):** `server/src/api/asistente.js` y la pantalla *Asistente IA*. Usa el modelo `claude-opus-5-5` y recibe solo resultados ya calculados; no recalcula. Requiere `ANTHROPIC_API_KEY` en `.env` (opcional).
+- **Asistente de IA (criterio 6):** `server/src/api/asistente.js` y la pantalla *Asistente IA*. Usa Gemini y recibe solo resultados ya calculados; no recalcula. Requiere `GEMINI_API_KEY` en `.env` (opcional).
 - **Demo del entregable 7:** `npm run demo:preparar` / `npm run demo:restaurar` (`server/scripts/demo.js`).
 - **R5:** las pruebas generan contraseñas aleatorias en cada ejecución.
 - **Documentación:** `docs/CUMPLIMIENTO.md` (requisito → código → prueba), README y skill `reportes-visuales` actualizados.
 
 **Verificación:** `npm test` con 18 de 18 pruebas en verde; recálculo independiente en Python con 0 diferencias; recorrido de las pantallas con los 3 perfiles en un navegador sin interfaz, sin errores.
 
-**Pendiente:** probar el asistente con una `ANTHROPIC_API_KEY` real.
+**Pendiente:** probar el asistente con una `GEMINI_API_KEY` real.
 
 ---
 

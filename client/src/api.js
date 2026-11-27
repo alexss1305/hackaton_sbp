@@ -15,13 +15,16 @@ export async function api(path, { method = 'GET', body, headers = {}, raw = fals
   let res;
   try {
     res = await fetch(`/api${path}`, { method, headers: h, body: payload });
-  } catch {
-    throw new ApiError('No se pudo conectar con el servidor. ¿Está ejecutándose el backend (npm run dev)?', 0);
+  } catch (err) {
+    console.error(err);
+    throw new ApiError('No se pudo conectar con el servidor. Intente de nuevo en unos segundos.', 0);
   }
   if (!res.ok) {
     let data = {};
     try { data = await res.json(); } catch { /* sin cuerpo JSON */ }
-    throw new ApiError(data.error || `Error ${res.status}`, res.status, data.detalles, data.diagnostico);
+    if (!data.error) console.error(`Error ${res.status}`, path);
+    const visible = data.error || 'No se pudo conectar con el servidor. Intente de nuevo en unos segundos.';
+    throw new ApiError(visible, res.status, data.detalles, data.diagnostico);
   }
   return raw ? res : res.json();
 }

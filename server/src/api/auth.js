@@ -7,6 +7,9 @@
  *   Nunca se guardan credenciales en el repositorio.
  */
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const PERFILES = {
   publico: { nombre: 'Público', nivel: 1 },
@@ -67,6 +70,31 @@ export function login(creds, perfil, password, usuario) {
 }
 
 export function logout(token) { sessions.delete(token); }
+
+const ENV_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.env');
+const CLAVE_ENV = { analista: 'ANALISTA_PASSWORD', administrador: 'ADMIN_PASSWORD' };
+
+/** Cambia la contraseña en memoria y en .env. No devuelve ni registra el valor. */
+export function cambiarContrasena(creds, perfil, password) {
+  if (perfil !== 'analista' && perfil !== 'administrador') {
+    const e = new Error('Solo se puede cambiar la contraseña de Analista o Administrador.'); e.status = 400; throw e;
+  }
+  const pw = String(password ?? '');
+  if (pw.length < 8 || pw.length > 80) {
+    const e = new Error('La contraseña debe tener entre 8 y 80 caracteres.'); e.status = 400; throw e;
+  }
+  const actual = credencial(creds, perfil);
+  creds[perfil] = { usuario: actual?.usuario || USUARIOS_POR_DEFECTO[perfil], password: pw };
+  const key = CLAVE_ENV[perfil];
+  let text = '';
+  try { text = fs.readFileSync(ENV_PATH, 'utf8'); } catch { text = ''; }
+  const linea = `${key}=${pw}`;
+  text = new RegExp(`^${key}=.*$`, 'm').test(text)
+    ? text.replace(new RegExp(`^${key}=.*$`, 'm'), () => linea)
+    : `${text.replace(/\s*$/, '')}\n${linea}\n`;
+  fs.writeFileSync(ENV_PATH, text.endsWith('\n') ? text : `${text}\n`);
+  process.env[key] = pw;
+}
 
 /** Middleware: identifica el perfil por el token Bearer; sin token = público. */
 export function authenticate(req, _res, next) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, setToken, getToken } from './api.js';
-import { fmtPeriodo } from './format.js';
+import { fmtCorte } from './format.js';
 import { ErrorBox, Loading } from './components/ui.jsx';
 import Login from './pages/Login.jsx';
 import Panel from './pages/Panel.jsx';
@@ -11,6 +11,7 @@ import Calidad from './pages/Calidad.jsx';
 import Reportes from './pages/Reportes.jsx';
 import Admin from './pages/Admin.jsx';
 import Asistente from './pages/Asistente.jsx';
+import Consultas from './pages/Consultas.jsx';
 import { Icon, Monogram } from './components/brand.jsx';
 import PeriodPicker from './components/PeriodPicker.jsx';
 
@@ -29,6 +30,7 @@ const PAGES = [
   { id: 'comparar', label: 'Comparar períodos', icon: 'compare', min: 'publico', permiso: 'comparar_periodos', group: 'Análisis', C: Comparar },
   { id: 'asistente', label: 'Asistente IA', icon: 'spark', min: 'publico', permiso: 'asistente_ia', group: 'Análisis', C: Asistente },
   { id: 'admin', label: 'Administración', icon: 'settings', min: 'administrador', group: 'Control', C: Admin },
+  { id: 'consultas', label: 'Consultas', icon: 'table', min: 'administrador', group: 'Control', C: Consultas },
 ];
 
 export default function App() {
@@ -107,7 +109,7 @@ export default function App() {
         <div className="crumb">Inicio / {current.group} / {current.label}</div>
         <h1>Ranking de Créditos por Actividad Económica</h1>
         <div className="banner-meta">
-          {fecha && <span className="chip-dark"><Icon name="calendar" />{fmtPeriodo(fecha)} · Fecha {fecha}</span>}
+          {fecha && <span className="chip-dark"><Icon name="calendar" />Corte {fmtCorte(fecha)}</span>}
           <span className="chip-dark"><Icon name="table" />Fuente: archivos AT03</span>
         </div>
       </section>
@@ -136,18 +138,18 @@ export default function App() {
         <main>
           <ErrorBox error={metaError} />
           {!meta && !metaError && <Loading />}
-          {meta && meta.periodos.length === 0 && current.id !== 'admin' && (
+          {meta && meta.periodos.length === 0 && current.id !== 'admin' && current.id !== 'consultas' && (
             <div className="alert info">No hay períodos cargados. {user.perfil === 'administrador' ? 'Cargue un archivo AT03 en Administración.' : 'Un Administrador debe cargar un archivo AT03.'}</div>
           )}
-          {meta && (meta.periodos.length > 0 || current.id === 'admin') && <Page key={current.id} ctx={ctx} />}
+          {meta && (meta.periodos.length > 0 || current.id === 'admin' || current.id === 'consultas') && <Page key={current.id} ctx={ctx} />}
         </main>
       </div>
       <footer>
         <span>
-          Fuente: archivos AT03{fecha ? ` · Período ${fmtPeriodo(fecha)} (Fecha ${fecha})` : ''} · Cálculo determinista desde los catálogos CINU/SB109, SB21 y bancos.
+          Fuente: archivos AT03{fecha ? ` / Corte ${fmtCorte(fecha)}` : ''} / Cálculo determinista desde los catálogos CINU/SB109, SB21 y bancos.
           {meta && ` Último cálculo: ${new Date(meta.calculadoEn).toLocaleString('es-PA')}.`}
         </span>
-        <span className="footer-note"><Icon name="info" />Datos sintéticos · Uso informativo, no constituye opinión de la SBP</span>
+        <span className="footer-note"><Icon name="info" />Datos sintéticos / Uso informativo, no constituye opinión de la SBP</span>
       </footer>
     </div>
   );

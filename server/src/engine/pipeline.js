@@ -67,7 +67,29 @@ export function processPeriod(fecha, rows, catalogs, archivos = []) {
     },
     reconciliaciones: agg.reconciliaciones,
     filtros: FILTERS,
+    operaciones: indexarOperaciones(rows, classified, excluded),
   };
+}
+
+/** Conserva cada préstamo ya clasificado para la consulta del Administrador. No cambia la cascada ni los saldos. */
+function indexarOperaciones(rows, classified, excluded) {
+  const clave = (file, line) => `${file}|${line}`;
+  const validas = new Map(classified.map((r) => [clave(r._file, r._line), r]));
+  const fuera = new Map(excluded.map((r) => [clave(r.Archivo, r.Linea_Archivo), r]));
+  return rows.map((r) => {
+    const k = clave(r._file, r._line);
+    const ok = validas.get(k);
+    const ex = fuera.get(k);
+    const o = {};
+    for (const [campo, valor] of Object.entries(ok || r)) {
+      if (!campo.startsWith('_')) o[campo] = valor;
+    }
+    o.Estado = ok ? 'valida' : 'excluida';
+    o.Filtro = ex?.Filtro || '';
+    o.Macroactividad = ok?._macro || '';
+    o.Subactividad = ok?._sub || '';
+    return o;
+  });
 }
 
 /**

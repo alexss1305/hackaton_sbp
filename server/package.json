@@ -11,7 +11,6 @@
     "ejemplo:errores": "node scripts/ejemplo-errores.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.14.0",
     "express": "^4.21.2"
   }
 }

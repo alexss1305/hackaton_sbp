@@ -66,7 +66,7 @@ export default function PeriodPicker({ periodos, value, onChange }) {
               const sel = p && p.fecha === value;
               return (
                 <button key={key} type="button" disabled={!p} className={`pp-month ${sel ? 'on' : ''} ${p ? 'has' : ''}`}
-                  title={p ? `Corte ${fmtCorte(p.fecha)} · ${p.universo.toLocaleString('es-PA')} operaciones válidas` : 'Sin datos cargados'}
+                  title={p ? `Corte ${fmtCorte(p.fecha)} / ${p.universo.toLocaleString('es-PA')} operaciones válidas` : 'Sin datos cargados'}
                   onClick={() => p && elegir(p.fecha)}>
                   {m}
                   {p && <i className="pp-dot" />}

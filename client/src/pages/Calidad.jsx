@@ -1,108 +1,118 @@
-import { useApi, ErrorBox, Loading, SortableTable, Badge } from '../components/ui.jsx';
+import { useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useApi, ErrorBox, Loading, Kpi, Badge, ChartTooltip, Select } from '../components/ui.jsx';
 import { download, qs } from '../api.js';
-import { fmtInt, fmtMoney, fmtPeriodo } from '../format.js';
+import { fmtInt, fmtMoney, fmtPct, fmtCorte } from '../format.js';
+import { REGLAS, ERRORES_ARCHIVO } from '../labels.js';
+
+const IDS = ['E1', 'E2', 'E3', 'E4'];
+const CLAVES = {
+  E1: 'E1_Duplicados',
+  E2: 'E2_Destino_Extranjero',
+  E3: 'E3_Saldo_No_Positivo',
+  E4: 'E4_Actividad_No_Catalogada',
+};
 
 export default function Calidad({ ctx }) {
-  const { fecha, puede } = ctx;
-  const { data, error, loading } = useApi(`/periods/${fecha}/quality`);
+  const { meta, fecha, setFecha, puede } = ctx;
+  const { data, error, loading } = useApi(fecha ? `/periods/${fecha}/quality` : null);
+  const [abierto, setAbierto] = useState('reglas');
   if (error) return <ErrorBox error={error} />;
   if (loading || !data) return <Loading />;
   const q = data.quality;
-  const steps = [
-    { id: 'Leídas', n: q.Filas_Leidas, desc: 'Filas del período (campo Fecha)' },
-    { id: 'E1', n: q.E1_Duplicados, desc: data.filtros[0].regla },
-    { id: 'E2', n: q.E2_Destino_Extranjero, desc: data.filtros[1].regla },
-    { id: 'E3', n: q.E3_Saldo_No_Positivo, desc: data.filtros[2].regla },
-    { id: 'E4', n: q.E4_Actividad_No_Catalogada, desc: data.filtros[3].regla },
-  ];
-  let restantes = q.Filas_Leidas;
+  const excluidas = q.Filas_Leidas - q.Universo_Local_Valido;
+  const aceptacion = (q.Universo_Local_Valido / q.Filas_Leidas) * 100;
+  const barras = meta.periodos.map((p) => ({ corte: fmtCorte(p.fecha) }));
+  // Las cifras de otros períodos salen del resumen ya cargado en meta solo como conteo de filas.
+  // El gráfico del período abierto usa el reporte de calidad de ese corte.
+  const una = [{ corte: fmtCorte(fecha) }];
+  for (const id of IDS) una[0][id] = q[CLAVES[id]];
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Calidad de datos · {fmtPeriodo(fecha)}</h1>
-          <p>Exclusiones en cascada: cada filtro se aplica sobre las filas que superaron el anterior y cada fila excluida se cuenta una sola vez, en el primer filtro que incumple.</p>
+          <h1>Calidad de datos / {fmtCorte(fecha)}</h1>
+          <p>Control de los registros leídos, de las exclusiones y de que los totales cuadren. Las cifras no se recalculan en esta pantalla.</p>
         </div>
         <div className="toolbar">
-          {puede('descargar_calidad') && <button className="btn" onClick={() => download('/export/calidad.csv')}>⬇ Reporte de calidad (todos los períodos)</button>}
-          {puede('descargar_excluidas') && <button className="btn" onClick={() => download(`/export/excluidas.csv${qs({ fechas: [fecha] })}`)}>⬇ Filas excluidas</button>}
+          <Select label="Fecha de corte" value={fecha} onChange={setFecha} options={meta.periodos.map((p) => ({ value: p.fecha, label: fmtCorte(p.fecha) }))} />
+          {puede('descargar_calidad') && <button className="btn" onClick={() => download('/export/calidad.csv')}>Descargar calidad</button>}
+          {puede('descargar_excluidas') && <button className="btn" onClick={() => download(`/export/excluidas.csv${qs({ fechas: [fecha] })}`)}>Descargar filas excluidas</button>}
         </div>
       </div>
 
-      <div className="grid g2">
-        <div className="card">
-          <h2>Cascada E1–E4</h2>
-          <p className="sub">Filas leídas = E1 + E2 + E3 + E4 + universo local válido {q.Cuadre_Cascada ? <Badge ok>Cuadra</Badge> : <Badge>No cuadra</Badge>}</p>
-          <table>
-            <thead><tr><th>Paso</th><th>Regla</th><th className="num">Excluidas</th><th className="num">Quedan</th></tr></thead>
-            <tbody>
-              {steps.map((s, i) => {
-                if (i > 0) restantes -= s.n;
-                return (
-                  <tr key={s.id}>
-                    <td><b>{s.id}</b></td>
-                    <td className="wrap">{s.desc}</td>
-                    <td className="num">{i === 0 ? '—' : fmtInt(s.n)}</td>
-                    <td className="num">{fmtInt(restantes)}</td>
-                  </tr>
-                );
-              })}
-              <tr><td><b>Universo</b></td><td>Universo local válido</td><td /><td className="num"><b>{fmtInt(q.Universo_Local_Valido)}</b></td></tr>
-            </tbody>
-          </table>
-          <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
-            Conteo independiente por regla (informativo, una fila puede incumplir varias): E1 {fmtInt(q.Conteo_Independiente.E1)} · E2 {fmtInt(q.Conteo_Independiente.E2)} · E3 {fmtInt(q.Conteo_Independiente.E3)} · E4 {fmtInt(q.Conteo_Independiente.E4)}
-          </p>
-        </div>
-
-        <div className="card">
-          <h2>Controles y reconciliaciones</h2>
-          <p className="sub">Saldo del universo local válido: <b>{fmtMoney(q.Saldo_Universo_Local_Valido)}</b></p>
-          <table>
-            <tbody>
-              <tr><td className="wrap">Unicidad de Numero_Prestamo en el universo válido</td><td><Badge ok={q.Prestamos_Unicos_En_Universo}>{q.Prestamos_Unicos_En_Universo ? 'Único' : 'Repetidos'}</Badge></td></tr>
-              <tr><td className="wrap"><b>R1</b> · {data.reconciliaciones.r1.descripcion} ({fmtInt(data.reconciliaciones.r1.verificaciones)} verificaciones)</td><td><Badge ok={data.reconciliaciones.r1.ok}>{data.reconciliaciones.r1.ok ? 'Cuadra' : 'No cuadra'}</Badge></td></tr>
-              <tr><td className="wrap"><b>R2</b> · {data.reconciliaciones.r2.descripcion}</td><td><Badge ok={data.reconciliaciones.r2.ok}>{data.reconciliaciones.r2.ok ? 'Cuadra' : 'No cuadra'}</Badge></td></tr>
-              <tr><td className="wrap"><b>R3</b> · {data.reconciliaciones.r3.descripcion}: {fmtMoney(data.reconciliaciones.r3.sumaBancos)} vs {fmtMoney(data.reconciliaciones.r3.universo)}</td><td><Badge ok={data.reconciliaciones.r3.ok}>{data.reconciliaciones.r3.ok ? 'Cuadra' : 'No cuadra'}</Badge></td></tr>
-              <tr><td className="wrap">Operaciones reclasificadas a Tarjeta (crédito personal + facilidad 07, SB21)</td><td><b>{fmtInt(q.Reclasificadas_Tarjeta_SB21)}</b></td></tr>
-              <tr><td className="wrap">Alertas de integridad referencial y coherencia CONSUMO (no excluyen filas)</td><td>{q.Alertas ? <Badge kind="warn">{fmtInt(q.Alertas)}</Badge> : <Badge ok>0</Badge>}</td></tr>
-            </tbody>
-          </table>
-        </div>
+      <div className="kpis">
+        <Kpi label="Registros leídos" value={fmtInt(q.Filas_Leidas)} hint={fmtCorte(fecha)} />
+        <Kpi label="Registros válidos" value={fmtInt(q.Universo_Local_Valido)} hint="Universo local válido" />
+        <Kpi label="Registros excluidos" value={fmtInt(excluidas)} hint="Primera regla que incumple cada fila" />
+        <Kpi label="Aceptación" value={fmtPct(aceptacion, 2)} hint="Válidos sobre leídos" />
       </div>
 
       <div className="card">
-        <h2>R2 por banco</h2>
-        <p className="sub">La suma de las actividades de cada banco es igual a su cartera local válida total.</p>
-        <SortableTable rows={data.reconciliaciones.r2.detalle} rowKey={(r) => r.Codigo_Banco} columns={[
-          { key: 'Codigo_Banco', label: 'Banco' },
-          { key: 'Suma_Actividades', label: 'Suma de actividades', num: true, render: (r) => fmtMoney(r.Suma_Actividades) },
-          { key: 'Total_Cartera', label: 'Total cartera local válida', num: true, render: (r) => fmtMoney(r.Total_Cartera) },
-          { key: 'Cuadra', label: 'Resultado', render: (r) => <Badge ok={r.Cuadra}>{r.Cuadra ? 'Cuadra' : 'Diferencia'}</Badge> },
-        ]} />
+        <h2>Exclusiones por regla</h2>
+        <table>
+          <thead><tr><th>Regla</th><th>Qué significa</th><th className="num">Cantidad en {fmtCorte(fecha)}</th></tr></thead>
+          <tbody>
+            {IDS.map((id) => (
+              <tr key={id}>
+                <td>{id} / {REGLAS[id].nombre}</td>
+                <td className="wrap">{REGLAS[id].frase}</td>
+                <td className="num">{fmtInt(q[CLAVES[id]])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="sub">Leídos = exclusiones + válidos {q.Cuadre_Cascada ? <Badge ok>Cuadra</Badge> : <Badge>No cuadra</Badge>}. El conteo independiente (una fila puede incumplir varias reglas) es E1 {fmtInt(q.Conteo_Independiente.E1)}, E2 {fmtInt(q.Conteo_Independiente.E2)}, E3 {fmtInt(q.Conteo_Independiente.E3)}, E4 {fmtInt(q.Conteo_Independiente.E4)}. Ese conteo es informativo y no sustituye la cascada.</p>
       </div>
 
       <div className="card">
-        <h2>Filas excluidas (trazabilidad)</h2>
-        <p className="sub">Mostrando {fmtInt(data.excluidas.length)} de {fmtInt(data.totalExcluidas)}. {puede('descargar_excluidas') ? 'Descargue la lista completa con el botón superior.' : 'La descarga de la lista completa requiere permiso (Analista por defecto).'}</p>
-        <SortableTable rows={data.excluidas} maxHeight={380} rowKey={(r) => `${r.Archivo}-${r.Linea_Archivo}`} columns={[
-          { key: 'Filtro', label: 'Filtro' }, { key: 'Motivo', label: 'Motivo' },
-          { key: 'Linea_Archivo', label: 'Línea', num: true }, { key: 'Numero_Prestamo', label: 'Préstamo' },
-          { key: 'Codigo_Banco', label: 'Banco' }, { key: 'Destino', label: 'Destino' },
-          { key: 'Saldo', label: 'Saldo', num: true, render: (r) => fmtMoney(r.Saldo) }, { key: 'Tipo_Actividad', label: 'Tipo_Actividad' },
-        ]} />
+        <h2>Exclusiones en este corte</h2>
+        <div className="chart">
+          <ResponsiveContainer>
+            <BarChart data={una}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="corte" axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Legend />
+              {IDS.map((id, i) => <Bar key={id} dataKey={id} name={REGLAS[id].nombre} fill={SERIES_SAFE[i]} radius={[4, 4, 0, 0]} />)}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="muted">Hay {fmtInt(meta.periodos.length)} cortes cargados. Cambie la fecha de corte del selector para ver las barras de otro período. {barras.length > 1 ? '' : ''}</p>
       </div>
 
-      {data.totalAlertas > 0 && (
-        <div className="card">
-          <h2>Alertas de calidad</h2>
-          <SortableTable rows={data.alertas} maxHeight={300} columns={[
-            { key: 'Tipo', label: 'Tipo' }, { key: 'Numero_Prestamo', label: 'Préstamo' }, { key: 'Codigo_Banco', label: 'Banco' },
-            { key: 'Linea_Archivo', label: 'Línea', num: true }, { key: 'Mensaje', label: 'Mensaje', wrap: true },
-          ]} />
-        </div>
-      )}
+      <details className="card" open={abierto === 'reglas'} onToggle={(e) => setAbierto(e.target.open ? 'reglas' : '')}>
+        <summary><h2 style={{ display: 'inline' }}>Reconciliaciones</h2></summary>
+        <p className="sub">Saldo del universo local válido: {fmtMoney(q.Saldo_Universo_Local_Valido)}</p>
+        <table>
+          <tbody>
+            <tr>
+              <td className="wrap"><b>R1.</b> La suma de las subactividades de cada banco es igual al saldo de esa actividad. {data.reconciliaciones.r1.descripcion}</td>
+              <td>{data.reconciliaciones.r1.ok ? <Badge ok>Cuadra</Badge> : <Badge>No cuadra</Badge>}</td>
+            </tr>
+            <tr>
+              <td className="wrap"><b>R2.</b> La suma de las seis actividades de cada banco es igual a su cartera local válida. {data.reconciliaciones.r2.descripcion}</td>
+              <td>{data.reconciliaciones.r2.ok ? <Badge ok>Cuadra</Badge> : <Badge>No cuadra</Badge>}</td>
+            </tr>
+            <tr>
+              <td className="wrap"><b>R3.</b> La suma de la cartera de los doce bancos es igual al saldo del universo local válido: {fmtMoney(data.reconciliaciones.r3.sumaBancos)} y {fmtMoney(data.reconciliaciones.r3.universo)}.</td>
+              <td>{data.reconciliaciones.r3.ok ? <Badge ok>Cuadra</Badge> : <Badge>No cuadra</Badge>}</td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+
+      <details className="card">
+        <summary><h2 style={{ display: 'inline' }}>Descripción de errores</h2></summary>
+        <p className="sub">Qué puede rechazar o marcar un archivo, y cómo corregirlo antes de cargarlo.</p>
+        {ERRORES_ARCHIVO.map((e) => (
+          <p key={e.titulo}><b>{e.titulo}.</b> {e.significa} {e.corregir}</p>
+        ))}
+      </details>
     </>
   );
 }
+
+const SERIES_SAFE = ['var(--series-1)', 'var(--series-2)', 'var(--series-4)', 'var(--series-8)'];

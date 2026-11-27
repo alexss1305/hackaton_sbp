@@ -34,7 +34,7 @@ export function Kpi({ label, value, hint }) {
 
 export function Badge({ ok, children, kind }) {
   const k = kind || (ok ? 'ok' : 'bad');
-  return <span className={`badge ${k}`}>{k === 'ok' ? '✓' : k === 'bad' ? '✕' : ''} {children}</span>;
+  return <span className={`badge ${k}`}>{children}</span>;
 }
 
 /**

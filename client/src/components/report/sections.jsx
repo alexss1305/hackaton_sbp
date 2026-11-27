@@ -7,6 +7,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LabelList, ReferenceLine } from 'recharts';
 import { ChartTooltip, Legend } from '../ui.jsx';
 import { fmtMoney, fmtCompact, fmtInt, fmtPct, fmtPeriodo, fmtRanking, SERIES } from '../../format.js';
+import { etiquetaMotivo } from '../../labels.js';
 
 export const REPORT_W = 700;
 
@@ -33,11 +34,11 @@ export function ReportHeader({ titulo, fecha, desde, perfil, fuente }) {
     <header className="r-header">
       <div className="r-brand">
         <div>
-          <div className="r-kicker">Superintendencia de Bancos de Panamá · Ranking de créditos por actividad económica</div>
+          <div className="r-kicker">Superintendencia de Bancos de Panamá / Ranking de créditos por actividad económica</div>
           <h1>{titulo}</h1>
           <div className="r-meta">
-            Período: <b>{fmtPeriodo(fecha)}</b> (Fecha {fecha}){desde ? <> · Comparado con <b>{fmtPeriodo(desde)}</b></> : null}
-            {' '}· Generado: {new Date().toLocaleString('es-PA')} · Perfil: {perfil}
+            Período: <b>{fmtPeriodo(fecha)}</b> (Fecha {fecha}){desde ? <> / Comparado con <b>{fmtPeriodo(desde)}</b></> : null}
+            {' '}/ Generado: {new Date().toLocaleString('es-PA')} / Perfil: {perfil}
           </div>
         </div>
       </div>
@@ -52,7 +53,7 @@ export function KpiSection({ n, resumen }) {
     ['Cartera local válida', fmtCompact(q.Saldo_Universo_Local_Valido), fmtMoney(q.Saldo_Universo_Local_Valido)],
     ['Operaciones válidas', fmtInt(q.Universo_Local_Valido), `de ${fmtInt(q.Filas_Leidas)} filas leídas`],
     ['Filas excluidas', fmtInt(q.Filas_Leidas - q.Universo_Local_Valido), 'E1 a E4 en cascada'],
-    ['Reconciliaciones', q.Reconciliacion_1 && q.Reconciliacion_2 && q.Reconciliacion_3 ? 'Cuadran' : 'Revisar', 'R1 · R2 · R3 al centavo'],
+    ['Reconciliaciones', q.Reconciliacion_1 && q.Reconciliacion_2 && q.Reconciliacion_3 ? 'Cuadran' : 'Revisar', 'R1 / R2 / R3 al centavo'],
   ];
   return (
     <Section n={n} title="Resumen del período">
@@ -130,7 +131,7 @@ export function RankingSection({ n, ranking, rows, subs, subactividades, destaca
     v: subs.filter((x) => x.Subactividad === s).reduce((a, x) => a + Number(x.Saldo), 0),
   }));
   return (
-    <Section n={n} title={`Ranking ${fmtRanking(ranking)}`} subtitle={`Mercado total: ${fmtMoney(total)} · ${rows.filter((r) => Number(r.Saldo_Actividad) > 0).length} bancos con saldo`}>
+    <Section n={n} title={`Ranking ${fmtRanking(ranking)}`} subtitle={`Mercado total: ${fmtMoney(total)} / ${rows.filter((r) => Number(r.Saldo_Actividad) > 0).length} bancos con saldo`}>
       <BarChart width={REPORT_W} height={24 * data.length + 30} data={data} layout="vertical" margin={{ left: 0, right: 70, top: 4 }} barCategoryGap={3}>
         <CartesianGrid horizontal={false} />
         <XAxis type="number" tickFormatter={fmtCompact} axisLine={false} tickLine={false} />
@@ -178,7 +179,7 @@ export function MovimientosSection({ n, cmp, rankings, destacados, params }) {
     baja: -movs.filter((m) => m.Ranking === r && m.Cambio_Posicion < 0).length,
   }));
   return (
-    <Section n={n} title={`Movimientos: ${fmtPeriodo(cmp.desde)} → ${fmtPeriodo(cmp.hasta)}`}
+    <Section n={n} title={`Movimientos: ${fmtPeriodo(cmp.desde)} a ${fmtPeriodo(cmp.hasta)}`}
       subtitle={`Regla de significancia: |cambio de posición| ≥ ${params.minCambioPosicion}${params.cambioLider ? ', cambio de líder' : ''}${params.umbralVarSaldoPct ? `, |variación de saldo| ≥ ${params.umbralVarSaldoPct}%` : ''}. ${sig.length} movimientos significativos.`}>
       <div className="r-label">Bancos que suben y bajan por ranking</div>
       <BarChart width={REPORT_W} height={40 + 28 * porRanking.length} data={porRanking} layout="vertical" stackOffset="sign" margin={{ left: 0, right: 20 }} barCategoryGap={4}>
@@ -195,7 +196,7 @@ export function MovimientosSection({ n, cmp, rankings, destacados, params }) {
         <ol className="r-explain">
           {sig.slice(0, 10).map((m) => (
             <li key={m.Ranking + m.Codigo_Banco} className={`${(m.Cambio_Posicion ?? 0) < 0 ? 'neg' : 'r-up'} ${destacados.includes(m.Codigo_Banco) ? 'r-hl' : ''}`}>
-              <span className="r-tag">{fmtRanking(m.Ranking)} · {m.Motivo_Significativo}</span>
+              <span className="r-tag">{fmtRanking(m.Ranking)} / {etiquetaMotivo(m.Motivo_Significativo)}</span>
               {m.Explicacion}
             </li>
           ))}
@@ -236,7 +237,7 @@ export function CalidadSection({ n, q }) {
       </div>
       <div className="r-checks">
         {[['Cascada cuadra', q.Cuadre_Cascada], ['Préstamos únicos', q.Prestamos_Unicos_En_Universo], ['R1 subactividades = actividad', q.Reconciliacion_1], ['R2 actividades = cartera', q.Reconciliacion_2], ['R3 bancos = universo', q.Reconciliacion_3]].map(([l, ok]) => (
-          <span key={l} className={`r-check ${ok ? 'ok' : 'bad'}`}>{ok ? '✓' : '✕'} {l}</span>
+          <span key={l} className={`r-check ${ok ? 'ok' : 'bad'}`}>{l}</span>
         ))}
         <span className="r-check">{fmtInt(q.Reclasificadas_Tarjeta_SB21)} reclasificadas a Tarjeta (SB21)</span>
       </div>

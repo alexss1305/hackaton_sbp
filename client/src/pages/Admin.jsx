@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { api, download } from '../api.js';
 import { useApi, ErrorBox, Loading, SortableTable, Badge, Select } from '../components/ui.jsx';
 import { fmtInt, fmtPeriodo, fmtFechaHora, fmtMoney, fmtRanking } from '../format.js';
 import Diagnostico from '../components/Diagnostico.jsx';
+import { etiquetaMotivo } from '../labels.js';
 
 const readFile = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(file, 'utf-8'); });
 
@@ -20,7 +21,8 @@ export default function Admin({ ctx }) {
         <Periodos ctx={ctx} />
         <Parametros ctx={ctx} />
       </div>
-      <Permisos ctx={ctx} />
+      <Permisos />
+      <Contrasenas />
       <Catalogos ctx={ctx} />
       <Bitacora />
     </>
@@ -40,7 +42,7 @@ function Carga({ ctx }) {
   const pick = async (f) => {
     setResult(null); setPreview(null); setError(null); setRechazo(null);
     if (!f) return;
-    if (!/\.(csv|txt)$/i.test(f.name)) { setError(new Error('El archivo debe ser .csv (formato AT03 separado por comas). Si viene de Excel, use "Guardar como → CSV UTF-8".')); return; }
+    if (!/\.(csv|txt)$/i.test(f.name)) { setError(new Error('El archivo debe ser .csv (formato AT03 separado por comas). Si viene de Excel, use Guardar como, CSV UTF-8.')); return; }
     setFile(f); setBusy(true);
     try {
       const t = await readFile(f);
@@ -99,24 +101,24 @@ function Carga({ ctx }) {
       )}
       {result && (
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="alert success"><b>Período cargado y rankings recalculados.</b> Períodos disponibles: {result.periodosAhora.map(fmtPeriodo).join(' · ')}</div>
+          <div className="alert success"><b>Período cargado y rankings recalculados.</b> Períodos disponibles: {result.periodosAhora.map(fmtPeriodo).join(' / ')}</div>
           {result.resultados.map((r) => (
             <div key={r.fecha}>
               <p style={{ margin: '0 0 6px' }}>
-                <b>{fmtPeriodo(r.fecha)}</b>: {fmtInt(r.calidad.Filas_Leidas)} filas leídas · E1 {r.calidad.E1_Duplicados} · E2 {r.calidad.E2_Destino_Extranjero} · E3 {r.calidad.E3_Saldo_No_Positivo} · E4 {r.calidad.E4_Actividad_No_Catalogada} · universo {fmtInt(r.calidad.Universo_Local_Valido)} ({fmtMoney(r.calidad.Saldo_Universo_Local_Valido)}){' '}
+                <b>{fmtPeriodo(r.fecha)}</b>: {fmtInt(r.calidad.Filas_Leidas)} filas leídas / E1 {r.calidad.E1_Duplicados} / E2 {r.calidad.E2_Destino_Extranjero} / E3 {r.calidad.E3_Saldo_No_Positivo} / E4 {r.calidad.E4_Actividad_No_Catalogada} / universo {fmtInt(r.calidad.Universo_Local_Valido)} ({fmtMoney(r.calidad.Saldo_Universo_Local_Valido)}){' '}
                 <Badge ok={r.calidad.Reconciliacion_1 && r.calidad.Reconciliacion_2}>Reconciliaciones</Badge>
               </p>
               {r.comparadoCon ? (
                 <>
                   <p className="muted" style={{ margin: '0 0 6px' }}>Movimientos significativos detectados frente a {fmtPeriodo(r.comparadoCon)}: <b>{r.movimientosSignificativos.length}</b></p>
                   <ul className="explain">
-                    {r.movimientosSignificativos.slice(0, 10).map((m) => <li key={m.Ranking + m.Codigo_Banco} className={(m.Cambio_Posicion ?? 0) < 0 ? 'down' : ''}><div className="r">{fmtRanking(m.Ranking)} · {m.Motivo_Significativo}</div>{m.Explicacion}</li>)}
+                    {r.movimientosSignificativos.slice(0, 10).map((m) => <li key={m.Ranking + m.Codigo_Banco} className={(m.Cambio_Posicion ?? 0) < 0 ? 'down' : ''}><div className="r">{fmtRanking(m.Ranking)} / {etiquetaMotivo(m.Motivo_Significativo)}</div>{m.Explicacion}</li>)}
                   </ul>
                 </>
               ) : <p className="muted">Es el primer período: no hay período anterior para comparar.</p>}
             </div>
           ))}
-          <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => ctx.goTo('comparar')}>Ver comparación completa →</button>
+          <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => ctx.goTo('comparar')}>Ver comparación completa</button>
         </div>
       )}
     </div>
@@ -150,7 +152,7 @@ function Periodos({ ctx }) {
           ))}
         </tbody>
       </table>
-      <button className="btn" style={{ marginTop: 12 }} onClick={recalc}>↻ Recalcular todo</button>
+      <button className="btn" style={{ marginTop: 12 }} onClick={recalc}>Recalcular todo</button>
     </div>
   );
 }
@@ -223,7 +225,7 @@ function Bitacora() {
   const { data, error, loading, reload } = useApi('/admin/log');
   return (
     <div className="card">
-      <div className="page-head"><div><h2>Registro de operaciones</h2><p className="sub">Qué se cargó, cuándo y con qué perfil.</p></div><button className="btn" onClick={reload}>↻ Actualizar</button></div>
+      <div className="page-head"><div><h2>Registro de operaciones</h2><p className="sub">Qué se cargó, cuándo y con qué perfil.</p></div><button className="btn" onClick={reload}>Actualizar</button></div>
       <ErrorBox error={error} />
       {loading ? <Loading /> : (
         <SortableTable rows={data || []} maxHeight={340} columns={[
@@ -239,67 +241,64 @@ function Bitacora() {
 
 const PERFIL_COLS = [{ id: 'publico', label: 'Público' }, { id: 'analista', label: 'Analista' }];
 
-function Permisos({ ctx }) {
-  const { data, error, loading, reload } = useApi('/admin/permisos');
-  const [draft, setDraft] = useState(null);
-  const [msg, setMsg] = useState(null);
-  const [err, setErr] = useState(null);
+function Permisos() {
+  const { data, error, loading } = useApi('/admin/permisos');
   if (error) return <ErrorBox error={error} />;
   if (loading || !data) return <Loading />;
-  const asig = draft || data.asignaciones;
-  const cambiado = draft && JSON.stringify(draft) !== JSON.stringify(data.asignaciones);
-  const toggle = (clave, perfil) => {
-    const cur = asig[clave] || [];
-    setDraft({ ...asig, [clave]: cur.includes(perfil) ? cur.filter((p) => p !== perfil) : [...cur, perfil] });
-    setMsg(null);
-  };
-  const done = async (p, texto) => {
-    setErr(null);
-    try { await p; setDraft(null); setMsg(texto); reload(); await ctx.reloadMeta(); } catch (e) { setErr(e); }
-  };
-  const guardar = () => done(api('/admin/permisos', { method: 'PUT', body: { asignaciones: asig } }), 'Permisos guardados. Se aplican de inmediato a todas las sesiones.');
-  const restaurar = () => window.confirm('¿Restaurar los permisos por defecto?') && done(api('/admin/permisos/restaurar', { method: 'POST' }), 'Permisos restaurados a los valores por defecto.');
   const grupos = [...new Set(data.catalogo.map((p) => p.grupo))];
-
   return (
     <div className="card">
       <h2>Perfiles y permisos</h2>
-      <p className="sub">Defina qué puede hacer cada perfil. El Administrador siempre tiene todos los permisos y sus funciones de control (carga de períodos, parámetros, catálogos, permisos y bitácora) no se pueden delegar. El servidor aplica estos permisos en cada solicitud.</p>
+      <p className="sub">Los tres perfiles están definidos por el reto. Esta tabla solo los muestra. Las funciones de Administración y de Consultas no se pueden pasar a otro perfil.</p>
       <table>
-        <thead><tr><th>Permiso</th>{PERFIL_COLS.map((c) => <th key={c.id} className="num">{c.label}</th>)}<th className="num">Administrador</th></tr></thead>
+        <thead><tr><th>Qué puede hacer</th>{PERFIL_COLS.map((c) => <th key={c.id}>{c.label}</th>)}<th>Administrador</th></tr></thead>
         <tbody>
           {grupos.map((g) => (
-            <FragmentGrupo key={g} grupo={g} items={data.catalogo.filter((p) => p.grupo === g)} asig={asig} toggle={toggle} />
+            <Fragment key={g}>
+              <tr><td colSpan={4} style={{ fontWeight: 600, background: 'var(--surface-2)' }}>{g}</td></tr>
+              {data.catalogo.filter((p) => p.grupo === g).map((p) => (
+                <tr key={p.clave}>
+                  <td className="wrap">{p.label}</td>
+                  {PERFIL_COLS.map((c) => <td key={c.id}>{(data.asignaciones[p.clave] || []).includes(c.id) ? 'Sí' : 'No'}</td>)}
+                  <td>Sí</td>
+                </tr>
+              ))}
+            </Fragment>
           ))}
-          <tr><td className="muted">Cargar períodos, parámetros, catálogos, permisos y bitácora</td>{PERFIL_COLS.map((c) => <td key={c.id} className="num muted">—</td>)}<td className="num">✓</td></tr>
+          <tr><td>Cargar períodos, catálogos, parámetros, bitácora y consultas de préstamos</td><td>No</td><td>No</td><td>Sí</td></tr>
         </tbody>
       </table>
-      <div className="toolbar" style={{ marginTop: 12 }}>
-        <button className="btn primary" disabled={!cambiado} onClick={guardar}>Guardar permisos</button>
-        {cambiado && <button className="btn" onClick={() => setDraft(null)}>Descartar cambios</button>}
-        <button className="btn" onClick={restaurar}>Restaurar valores por defecto</button>
-      </div>
-      {msg && <div className="alert success" style={{ marginTop: 10 }}>{msg}</div>}
-      <ErrorBox error={err} />
     </div>
   );
 }
 
-function FragmentGrupo({ grupo, items, asig, toggle }) {
+function Contrasenas() {
+  const [perfil, setPerfil] = useState('analista');
+  const [password, setPassword] = useState('');
+  const [msg, setMsg] = useState(null);
+  const [err, setErr] = useState(null);
+  const guardar = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      await api('/admin/contrasena', { method: 'PUT', body: { perfil, password } });
+      setPassword('');
+      setMsg('Contraseña actualizada. No se vuelve a mostrar.');
+    } catch (ex) { setErr(ex); }
+  };
   return (
-    <>
-      <tr><td colSpan={4} style={{ fontWeight: 600, background: 'var(--surface-2)' }}>{grupo}</td></tr>
-      {items.map((p) => (
-        <tr key={p.clave}>
-          <td className="wrap">{p.label}</td>
-          {PERFIL_COLS.map((c) => (
-            <td key={c.id} className="num">
-              <input type="checkbox" aria-label={`${p.label} – ${c.label}`} checked={(asig[p.clave] || []).includes(c.id)} onChange={() => toggle(p.clave, c.id)} />
-            </td>
-          ))}
-          <td className="num">✓</td>
-        </tr>
-      ))}
-    </>
+    <form className="card" onSubmit={guardar}>
+      <h2>Contraseñas</h2>
+      <p className="sub">Escriba una contraseña nueva para Analista o Administrador. La actual no se muestra.</p>
+      <div className="toolbar">
+        <Select label="Perfil" value={perfil} onChange={setPerfil} options={[{ value: 'analista', label: 'Analista' }, { value: 'administrador', label: 'Administrador' }]} />
+        <label className="field">Contraseña nueva
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} />
+        </label>
+        <button className="btn primary" type="submit">Guardar contraseña</button>
+      </div>
+      {msg && <div className="alert success">{msg}</div>}
+      <ErrorBox error={err} />
+    </form>
   );
 }

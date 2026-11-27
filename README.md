@@ -36,7 +36,7 @@ El inicio de sesión tiene dos pasos: **Público** entra directo; **Personal de 
 `.env` no se versiona (`.gitignore`); si falta una contraseña, el servidor genera una temporal y la muestra en consola.
 
 ### Asistente de IA (opcional)
-Agregue `ANTHROPIC_API_KEY=...` a `.env` y reinicie el servidor para habilitar *Asistente IA*. El asistente (`server/src/api/asistente.js`, modelo `claude-opus-5-5`) recibe **solo los resultados ya calculados** del período (rankings, subactividades, calidad, movimientos, indicadores) y tiene instrucciones de no inventar ni recalcular cifras: **explica, no calcula** (Sección 9 del reto). Usa el respaldo automático del servicio ante rechazos (`fallbacks: "default"`). Sin clave, la pantalla indica cómo habilitarlo y el resto de la plataforma funciona igual.
+Agregue `GEMINI_API_KEY` a `.env` y reinicie el servidor para habilitar *Asistente IA*. El asistente (`server/src/api/asistente.js`, modelo Gemini) recibe **solo los resultados ya calculados** del período y tiene instrucciones de no inventar ni recalcular cifras: **explica, no calcula** (Sección 9 del reto). Sin clave, la pantalla indica cómo habilitarlo y el resto de la plataforma funciona igual.
 
 ## Arquitectura
 ```

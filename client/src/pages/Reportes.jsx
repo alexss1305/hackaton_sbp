@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, download, qs } from '../api.js';
 import { ErrorBox, Loading, MultiSelect, Select } from '../components/ui.jsx';
-import { fmtPeriodo, fmtRanking } from '../format.js';
+import { fmtMoney, fmtPeriodo, fmtRanking } from '../format.js';
 import {
   ReportHeader, KpiSection, LideresSection, HeatmapSection, RankingSection,
   MovimientosSection, CalidadSection, IndicadoresSection, NotaMetodologica,
@@ -51,8 +51,11 @@ export default function Reportes({ ctx }) {
   const [rankings, setRankings] = useState([]);
   const [destacados, setDestacados] = useState([]);
   const [topN, setTopN] = useState(5);
+  const [tipoDescarga, setTipoDescarga] = useState(DESCARGAS[0].label);
   const [data, setData] = useState(null);
+  const [historial, setHistorial] = useState([]);
   const [error, setError] = useState(null);
+  const verComplemento = puede('comparar_periodos');
 
   const aplicarPlantilla = (k) => {
     const p = PLANTILLAS[k];
@@ -75,6 +78,15 @@ export default function Reportes({ ctx }) {
       .catch((e) => alive && setError(e));
     return () => { alive = false; };
   }, [fecha, desde, conMovs]);
+
+  useEffect(() => {
+    if (!verComplemento) return undefined;
+    let alive = true;
+    Promise.all(fechas.map((f) => api(`/periods/${f}/rankings`).then((rk) => ({ fecha: f, rk }))))
+      .then((rows) => { if (alive) setHistorial(rows); })
+      .catch(() => { if (alive) setHistorial([]); });
+    return () => { alive = false; };
+  }, [fechas.join(','), verComplemento]);
 
   const ready = data && data.fecha === fecha;
   const secs = (() => {
@@ -101,7 +113,41 @@ export default function Reportes({ ctx }) {
   })();
 
   const run = (path) => { setError(null); download(path).catch(setError); };
+  const descargarPersonalizado = () => {
+    if (!ready) return;
+    const cols = ['Fecha', 'Actividad', 'Banco', 'Saldo', 'Ponderacion', 'Posicion', 'Cartera_local', 'Subactividad_lider'];
+    const lines = [cols.join(',')];
+    const bancosOk = destacados.length ? destacados : null;
+    for (const rk of rks) {
+      for (const row of data.rankingsData[rk] || []) {
+        if (bancosOk && !bancosOk.includes(row.Codigo_Banco)) continue;
+        const lider = data.subs.filter((s) => s.Ranking === rk && s.Codigo_Banco === row.Codigo_Banco).sort((a, b) => Number(b.Saldo) - Number(a.Saldo))[0];
+        lines.push([fecha, rk, row.Banco, row.Saldo_Actividad, row.Ponderacion_Pct, row.Posicion, row.Total_Cartera_Local_Valida, lider?.Subactividad || ''].map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(','));
+      }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'reporte_personalizado.csv';
+    a.click();
+  };
   const toggleSec = (id) => setSecciones((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const filasComplemento = (() => {
+    if (!ready || !verComplemento) return [];
+    const bancosOk = destacados.length ? destacados : null;
+    const out = [];
+    for (const rk of rks) {
+      for (const row of data.rankingsData[rk] || []) {
+        if (bancosOk && !bancosOk.includes(row.Codigo_Banco)) continue;
+        const lider = data.subs.filter((s) => s.Ranking === rk && s.Codigo_Banco === row.Codigo_Banco).sort((a, b) => Number(b.Saldo) - Number(a.Saldo))[0];
+        const posiciones = fechas.map((f) => {
+          const pack = historial.find((h) => h.fecha === f)?.rk;
+          return pack?.[rk]?.find((x) => x.Codigo_Banco === row.Codigo_Banco)?.Posicion ?? '';
+        });
+        out.push({ key: `${rk}-${row.Codigo_Banco}`, rk, banco: row.Banco, posiciones, cartera: row.Total_Cartera_Local_Valida, pond: row.Ponderacion_Pct, lider: lider?.Subactividad || '' });
+      }
+    }
+    return out;
+  })();
 
   return (
     <>
@@ -110,7 +156,7 @@ export default function Reportes({ ctx }) {
           <h1>Reportes</h1>
           <p>Arme un reporte con plantillas o eligiendo secciones, revise la vista previa y descárguelo como PDF. Los datos oficiales también se descargan en CSV.</p>
         </div>
-        <button className="btn primary" onClick={() => window.print()} disabled={!ready}>🖨 Descargar PDF / Imprimir</button>
+        <button className="btn primary" onClick={() => window.print()} disabled={!ready}>Descargar PDF / Imprimir</button>
       </div>
       <ErrorBox error={error} />
 
@@ -139,21 +185,18 @@ export default function Reportes({ ctx }) {
             {SECCIONES.map((s) => (
               <label key={s.id} className={ok(s) ? '' : 'disabled'} title={ok(s) ? '' : 'Su perfil no tiene este permiso'}>
                 <input type="checkbox" disabled={!ok(s)} checked={activas.includes(s.id)} onChange={() => toggleSec(s.id)} />
-                {s.label}{!ok(s) && <small> · sin permiso</small>}
+                {s.label}{!ok(s) && <small> / sin permiso</small>}
               </label>
             ))}
           </div>
           {activas.includes('movimientos') && !conMovs && <p className="muted" style={{ fontSize: 12 }}>Elija un período de comparación para incluir los movimientos.</p>}
 
-          <details className="downloads">
-            <summary>Datos oficiales en CSV</summary>
-            <div className="dl-list">
-              {DESCARGAS.filter((d) => puede(d.permiso)).map((d) => (
-                <button key={d.label} className="btn" onClick={() => run(d.path(fecha, rankings))}>⬇ {d.label.replace('{periodo}', fmtPeriodo(fecha))}</button>
-              ))}
-              {!DESCARGAS.some((d) => puede(d.permiso)) && <p className="muted" style={{ fontSize: 12 }}>Su perfil no tiene descargas habilitadas.</p>}
-            </div>
-          </details>
+          <h3>4. Descarga</h3>
+          <p className="sub">Elija el tipo. Solo aparecen las descargas de su perfil. El archivo oficial no cambia de columnas.</p>
+          <Select label="Tipo de archivo" value={tipoDescarga} onChange={setTipoDescarga} options={DESCARGAS.filter((d) => puede(d.permiso)).map((d) => ({ value: d.label, label: d.label.replace('{periodo}', fmtPeriodo(fecha)) }))} />
+          <p className="muted" style={{ fontSize: 12 }}>Vista previa: corte {fmtPeriodo(fecha)}{rankings.length ? `, actividades elegidas: ${rankings.length}` : ', las seis actividades'}.</p>
+          <button className="btn" disabled={!tipoDescarga} onClick={() => { const d = DESCARGAS.find((x) => x.label === tipoDescarga); if (d) run(d.path(fecha, rankings)); }}>Descargar selección</button>
+          {puede('comparar_periodos') && ready && <button className="btn" onClick={descargarPersonalizado}>Descargar reporte personalizado</button>}
         </aside>
 
         <div className="report-stage">
@@ -161,11 +204,43 @@ export default function Reportes({ ctx }) {
             <article className="report" aria-label="Vista previa del reporte">
               <ReportHeader titulo={titulo} fecha={fecha} desde={conMovs ? desde : null} perfil={perfilNombre} fuente={meta.fuente} />
               {secs.length ? secs : <p className="r-foot">Seleccione al menos una sección.</p>}
-              <footer className="r-footer">Ranking de Créditos · Superintendencia de Bancos de Panamá · Cálculo reproducible desde archivos AT03 · Datos sintéticos, uso informativo</footer>
+              <footer className="r-footer">Ranking de Créditos / Superintendencia de Bancos de Panamá / Cálculo reproducible desde archivos AT03 / Datos sintéticos, uso informativo</footer>
             </article>
           )}
         </div>
       </div>
+      {verComplemento && ready && (
+        <section className="card no-print" style={{ marginTop: 16 }}>
+          <h3>Información complementaria</h3>
+          <p className="sub">Cartera local, ponderación y subactividad líder del corte {fmtPeriodo(fecha)}, y la posición de cada banco en los cortes cargados. Estas cifras salen de los rankings ya calculados.</p>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Actividad</th>
+                  <th>Banco</th>
+                  {fechas.map((f) => <th key={f}>Posición {fmtPeriodo(f)}</th>)}
+                  <th>Cartera local</th>
+                  <th>Ponderación</th>
+                  <th>Subactividad líder</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filasComplemento.map((row) => (
+                  <tr key={row.key}>
+                    <td>{fmtRanking(row.rk)}</td>
+                    <td>{row.banco}</td>
+                    {row.posiciones.map((p, i) => <td key={fechas[i]}>{p}</td>)}
+                    <td>{fmtMoney(row.cartera)}</td>
+                    <td>{row.pond}</td>
+                    <td>{row.lider}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </>
   );
 }

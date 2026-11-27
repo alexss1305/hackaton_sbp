@@ -81,6 +81,12 @@ function explain(m, prev, curr) {
   }
   txt += v === 0n ? '. Su saldo no cambia' : `. Su saldo ${v > 0n ? 'crece' : 'cae'} ${fmtMoney(v)}`;
   if (m.Var_Saldo_Pct !== null) txt += ` (${Number(m.Var_Saldo_Pct) >= 0 ? '+' : ''}${m.Var_Saldo_Pct}%)`;
-  if (driver && driver.d !== 0n) txt += `; la subactividad con mayor variación es ${driver.sub} (${driver.d > 0n ? '+' : '−'}${fmtMoney(driver.d)})`;
+  if (m.Cambio_Posicion < 0 && v > 0n) txt += ', pero otro banco crece más rápido';
+  if (m.Cambio_Posicion > 0 && v < 0n) txt += ', aunque su saldo disminuye';
+  if (driver && driver.d !== 0n) {
+    m.Subactividad_Driver = driver.sub;
+    m.Var_Subactividad = formatCents(driver.d);
+    txt += `; la subactividad con mayor variación es ${driver.sub} (${driver.d > 0n ? '+' : '−'}${fmtMoney(driver.d)})`;
+  }
   return txt + '.';
 }

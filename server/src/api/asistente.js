@@ -1,21 +1,14 @@
 /**
- * Asistente de IA (criterio 6 del reto): EXPLICA y responde preguntas sobre resultados YA CALCULADOS.
- * Nunca calcula rankings: recibe como contexto los rankings, la calidad y los movimientos que produjo el motor
- * determinista (server/src/engine) y se le indica que no invente ni recalcule cifras.
- *
- * Credenciales: ANTHROPIC_API_KEY en .env (no versionado). Sin clave, el asistente queda deshabilitado.
+ * Asistente de IA (criterio 6 del reto): EXPLICA resultados YA CALCULADOS.
+ * No calcula rankings. La clave GEMINI_API_KEY vive solo en .env.
  */
-import Anthropic from '@anthropic-ai/sdk';
 import { compareRankings } from '../engine/compare.js';
 
-const MODEL = 'claude-opus-5-5';
+const MODEL = 'gemini-2.0-flash';
 const MAX_PREGUNTA = 1000;
 const MAX_TURNOS = 6;
 
-export const asistenteDisponible = () => Boolean(process.env.ANTHROPIC_API_KEY);
-
-let client = null;
-const getClient = () => (client ??= new Anthropic());
+export const asistenteDisponible = () => Boolean(process.env.GEMINI_API_KEY);
 
 const SYSTEM = `Eres el asistente de la plataforma "Rankings de Crédito por Actividad Económica" del Hackathon SBP 2026 (Superintendencia de Bancos de Panamá).
 Tu función es EXPLICAR y AYUDAR A EXPLORAR resultados que ya calculó un motor determinista. Reglas:
@@ -23,9 +16,8 @@ Tu función es EXPLICAR y AYUDAR A EXPLORAR resultados que ya calculó un motor 
 - No recalcules rankings, posiciones, saldos ni ponderaciones: cítalos tal como aparecen. Puedes describir comparaciones evidentes (mayor/menor, sube/baja) y citar diferencias que ya vengan calculadas (Var_Saldo, Var_Saldo_Pct, Cambio_Posicion).
 - Si la pregunta no se puede responder con los datos, dilo claramente y sugiere qué pantalla de la plataforma consultar (Rankings, Filtros y subactividades, Calidad de datos, Comparar períodos, Reportes).
 - Todos los bancos y clientes son ficticios; los datos son sintéticos. No des recomendaciones de inversión ni opiniones regulatorias formales.
-- Responde en español, breve y claro (máximo ~200 palabras), con viñetas cuando ayuden. Montos con separador de miles.`;
+- Responde en español, breve y claro (máximo ~200 palabras). Montos con signo de dólar y separador de miles.`;
 
-/** Arma el contexto compacto del período a partir de los resultados del motor. */
 function buildContext(store, fecha) {
   const p = store.period(fecha);
   const idx = store.periods.findIndex((x) => x.fecha === fecha);
@@ -52,13 +44,9 @@ function buildContext(store, fecha) {
   };
 }
 
-/**
- * Responde una pregunta. historial: [{ role: 'user'|'assistant', content: string }] de turnos previos.
- * Devuelve { respuesta, modelo }.
- */
 export async function preguntar(store, { fecha, pregunta, historial = [] }) {
   if (!asistenteDisponible()) {
-    const e = new Error('El asistente de IA no está configurado: falta ANTHROPIC_API_KEY en el archivo .env del servidor.'); e.status = 503; throw e;
+    const e = new Error('El asistente de IA no está configurado: falta GEMINI_API_KEY en el archivo .env del servidor.'); e.status = 503; throw e;
   }
   const q = String(pregunta ?? '').trim();
   if (!q) { const e = new Error('Escriba una pregunta.'); e.status = 400; throw e; }
@@ -68,36 +56,32 @@ export async function preguntar(store, { fecha, pregunta, historial = [] }) {
   const previos = (Array.isArray(historial) ? historial : [])
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
     .slice(-MAX_TURNOS * 2)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+    .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content.slice(0, 4000) }] }));
   while (previos.length && previos[0].role !== 'user') previos.shift();
 
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`;
+  let res;
   try {
-    const response = await getClient().beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low' },
-      // El contexto del período va en el system (estable entre preguntas) y se cachea.
-      system: [
-        { type: 'text', text: SYSTEM },
-        { type: 'text', text: `<datos>\n${JSON.stringify(contexto)}\n</datos>`, cache_control: { type: 'ephemeral' } },
-      ],
-      messages: [...previos, { role: 'user', content: q }],
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [...previos, { role: 'user', parts: [{ text: `<datos>\n${JSON.stringify(contexto)}\n</datos>\n\nPregunta: ${q}` }] }],
+        generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
+      }),
     });
-    if (response.stop_reason === 'refusal') {
-      return { respuesta: 'No puedo responder esa pregunta. Intente reformularla en relación con los rankings, la calidad de datos o los movimientos del período.', modelo: response.model };
-    }
-    const texto = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-    return { respuesta: texto || 'No obtuve una respuesta. Intente de nuevo.', modelo: response.model };
-  } catch (err) {
-    let e;
-    if (err instanceof Anthropic.AuthenticationError) e = new Error('La clave ANTHROPIC_API_KEY no es válida.');
-    else if (err instanceof Anthropic.RateLimitError) e = new Error('El servicio de IA está saturado; intente de nuevo en unos segundos.');
-    else if (err instanceof Anthropic.APIConnectionError) e = new Error('No hay conexión con el servicio de IA.');
-    else if (err instanceof Anthropic.APIError) e = new Error(`El servicio de IA respondió con un error (${err.status ?? 'sin código'}).`);
-    else throw err;
+  } catch {
+    const e = new Error('No hay conexión con el servicio de IA.'); e.status = 502; throw e;
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(res.status === 400 || res.status === 403
+      ? 'La clave GEMINI_API_KEY no es válida.'
+      : 'El servicio de IA respondió con un error. Intente de nuevo en unos segundos.');
     e.status = 502;
     throw e;
   }
+  const texto = (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('\n').trim();
+  return { respuesta: texto || 'No obtuve una respuesta. Intente de nuevo.', modelo: MODEL };
 }

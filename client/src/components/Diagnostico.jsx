@@ -81,7 +81,7 @@ export default function Diagnostico({ diag, onDescargar }) {
               <div key={k} className={`diag-item ${h.gravedad}`}>
                 <button type="button" className="diag-item-head" onClick={() => toggle(k)} aria-expanded={abierto.has(k)}>
                   <span className={`badge ${g.cls}`}>{g.label}</span>
-                  <span className="diag-regla"><b>{h.regla}</b>{!h.campo.startsWith('(') && <> · <code>{h.campo}</code></>}</span>
+                  <span className="diag-regla"><b>{h.regla}</b>{!h.campo.startsWith('(') && <> / <code>{h.campo}</code></>}</span>
                   <span className="diag-n">{fmtInt(h.cantidad)} {h.cantidad === 1 ? 'caso' : 'casos'}</span>
                   <Icon name={abierto.has(k) ? 'chevronDown' : 'chevron'} />
                 </button>

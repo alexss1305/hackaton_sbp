@@ -59,7 +59,7 @@ export default function Asistente({ ctx }) {
 
       {!meta.asistenteDisponible ? (
         <div className="alert info">
-          <b>El asistente no está configurado en este servidor.</b> Para habilitarlo, agregue <code>ANTHROPIC_API_KEY=…</code> al archivo <code>.env</code> y reinicie el servidor. El resto de la plataforma funciona sin IA.
+          <b>El asistente no está configurado en este servidor.</b> Para habilitarlo, agregue GEMINI_API_KEY al archivo .env y reinicie el servidor. El resto de la plataforma funciona sin IA.
         </div>
       ) : (
         <div className="card chat">
@@ -85,7 +85,7 @@ export default function Asistente({ ctx }) {
             <button className="btn primary" disabled={busy || !pregunta.trim()}>Enviar</button>
             {mensajes.length > 0 && <button type="button" className="btn" onClick={() => setMensajes([])} disabled={busy}>Nueva conversación</button>}
           </form>
-          <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>⚠ Respuestas generadas por IA a partir de datos ficticios; verifique las cifras en Rankings o Reportes. Las cifras oficiales provienen siempre del cálculo determinista.</p>
+          <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>Respuestas generadas por IA a partir de datos ficticios; verifique las cifras en Rankings o Reportes. Las cifras oficiales provienen siempre del cálculo determinista.</p>
         </div>
       )}
     </>

@@ -1,11 +1,12 @@
 import express from 'express';
-import { authenticate, requirePerfil, login, logout, PERFILES, esPerfil } from './auth.js';
+import { authenticate, requirePerfil, login, logout, cambiarContrasena, PERFILES, esPerfil } from './auth.js';
 import { compareRankings } from '../engine/compare.js';
 import * as X from '../engine/exports.js';
 import { toCsv } from '../engine/csv.js';
 import { CATALOG_FILES } from '../engine/catalogs.js';
 import { preguntar, asistenteDisponible } from './asistente.js';
 import { diagnosticarAt03, hallazgosPlano } from '../engine/diagnose.js';
+import { consultarOperaciones } from '../engine/consultas.js';
 
 export const FUENTE = 'Datos sintéticos con estructura regulatoria AT03 (Átomo 03) suministrados por la SBP para el Hackathon SBP 2026. '
   + 'Bancos, clientes y operaciones son ficticios. Uso informativo; no constituye opinión formal de la Superintendencia de Bancos de Panamá.';
@@ -28,7 +29,7 @@ export function buildRouter(store, passwords) {
   const r = express.Router();
   r.use(authenticate);
   const permiso = (clave) => (req, res, next) => (store.tiene(req.perfil, clave) ? next()
-    : res.status(403).json({ error: `Su perfil (${PERFILES[req.perfil].nombre}) no tiene permiso para esta función. El Administrador puede habilitarlo en Administración → Permisos.` }));
+    : res.status(403).json({ error: `Su perfil (${PERFILES[req.perfil].nombre}) no tiene permiso para esta función.` }));
 
   // ---------- Sesión ----------
   r.post('/auth/login', express.json(), (req, res) => {
@@ -175,6 +176,22 @@ export function buildRouter(store, passwords) {
   r.get('/admin/permisos', admin, (req, res) => res.json(store.permisosConfig()));
   r.put('/admin/permisos', admin, express.json(), wrap((req, res) => res.json(store.updatePermisos(req.body?.asignaciones, req.perfil))));
   r.post('/admin/permisos/restaurar', admin, wrap((req, res) => res.json(store.updatePermisos(null, req.perfil, { restaurar: true }))));
+  r.put('/admin/contrasena', admin, express.json(), wrap((req, res) => {
+    const { perfil, password } = req.body || {};
+    cambiarContrasena(passwords, perfil, password);
+    store.addLog(req.perfil, 'Cambio de contraseña', `Se actualizó la contraseña del perfil ${PERFILES[perfil]?.nombre || perfil}`);
+    res.json({ ok: true });
+  }));
+  r.get('/admin/operaciones', admin, wrap((req, res) => {
+    if (!req.query.fecha) return res.status(400).json({ error: 'Seleccione una fecha de corte.' });
+    res.json(consultarOperaciones(store.period(req.query.fecha), req.query));
+  }));
+  r.get('/admin/operaciones.csv', admin, wrap((req, res) => {
+    if (!req.query.fecha) return res.status(400).json({ error: 'Seleccione una fecha de corte.' });
+    const { rows } = consultarOperaciones(store.period(req.query.fecha), { ...req.query, todo: '1' });
+    const columnas = rows[0] ? Object.keys(rows[0]) : ['Numero_Prestamo'];
+    sendCsv(res, 'consulta_operaciones.csv', toCsv(rows, columnas), { bom: req.query.bom === '1' });
+  }));
 
   r.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
   // eslint-disable-next-line no-unused-vars

@@ -8,8 +8,7 @@ const PERSONAL = [
   { id: 'administrador', nombre: 'Administrador', icon: 'shield' },
 ];
 
-/** Panel izquierdo con la identidad de la Superintendencia (degradado índigo y líneas doradas). */
-function Hero({ titulo, texto, stats }) {
+function Hero({ titulo, texto }) {
   return (
     <div className="login-hero">
       <Monogram inverse subtitle="de Bancos de Panamá" title="Superintendencia" />
@@ -17,9 +16,6 @@ function Hero({ titulo, texto, stats }) {
         <div className="gold-rule" />
         <h1>{titulo}</h1>
         <p>{texto}</p>
-      </div>
-      <div className="login-stats">
-        {stats.map(([v, l]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
       </div>
     </div>
   );
@@ -56,11 +52,10 @@ export default function Login({ onLogin }) {
             <Hero
               titulo="Ranking de Créditos"
               texto="Posición de cada banco por actividad económica, comparación entre períodos y reportes con su respaldo."
-              stats={[['12', 'bancos de licencia general'], ['6', 'rankings por actividad'], ['3', 'períodos disponibles']]}
             />
             <div className="login-side">
               <div className="login-box">
-                <h2>Ranking de Créditos · Superintendencia de Bancos de Panamá</h2>
+                <h2>Ranking de Créditos / Superintendencia de Bancos de Panamá</h2>
                 <p className="lead">Seleccione su perfil para ingresar.</p>
                 <div className="gold-line" />
                 <ErrorBox error={error} />
@@ -82,7 +77,6 @@ export default function Login({ onLogin }) {
             <Hero
               titulo="Acceso del personal"
               texto="Análisis comparativo, movimientos de posición, carga de períodos, parámetros y catálogos."
-              stats={[['Analista', 'comparar y reportar'], ['Admin', 'cargar y configurar'], ['Bitácora', 'cada operación registrada']]}
             />
             <div className="login-side">
               <form className="login-box" onSubmit={submitPersonal}>
@@ -105,13 +99,13 @@ export default function Login({ onLogin }) {
                   <span className="in"><Icon name="lock" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></span>
                 </label>
                 <ErrorBox error={error} />
-                <button className="btn primary btn-lg" disabled={busy}>{busy ? 'Ingresando…' : <>Ingresar <Icon name="arrow" /></>}</button>
+                <button className="btn primary btn-lg" disabled={busy}>{busy ? 'Ingresando…' : 'Ingresar'}</button>
               </form>
             </div>
           </>
         )}
       </div>
-      <div className="fine-print">Datos sintéticos con estructura AT03 · Hackathon SBP 2026 · Uso informativo</div>
+      <div className="fine-print">Datos sintéticos con estructura AT03 / Hackathon SBP 2026 / Uso informativo</div>
     </div>
   );
 }
