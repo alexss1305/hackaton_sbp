@@ -9,6 +9,17 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
+## (pendiente) — Comparación avanzada del Analista
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Cambios**
+- **Servidor:** `server/src/engine/comparacion.js` y `server/src/api/comparacion.js` (`GET /api/comparacion`, permiso `comparar_periodos`): series de hasta 5 bancos × varios cortes × varias actividades, participación de mercado en enteros, subactividades, movimientos entre cortes consecutivos (y primero→último) con la comparación oficial, y resumen inicial→final. No recalcula rankings.
+- **Pantalla** `client/src/pages/Comparar.jsx` (+ `comparar.css`): selección por chips de cortes, bancos (tope 5, color fijo por banco) y actividades; medidas saldo, participación, ponderación y posición; 5 tipos de gráfico (evolución, barras agrupadas, variación divergente, mapa de calor y tabla) en paneles por actividad; tarjetas por banco; tabla de movimientos con filtros (par de cortes, tendencia, variación mínima, solo significativos); principales movimientos con explicación automática; descarga CSV e impresión.
+
+**Verificación:** `npm test` 47 de 47 (nuevo `server/test/comparacion.test.js`: series idénticas a los rankings oficiales, participación sobre el total de 12 bancos, pares de cortes, permiso y tope de 5). Recorrido en navegador como Analista con los 3 períodos, sin errores en consola.
+
+---
+
 ## (pendiente) — Diagnóstico de archivos AT03 al importar
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 
