@@ -9,7 +9,24 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
-## (pendiente) — Auditoría del backend: casos borde, seguridad y exportaciones
+## (pendiente) — Diagnóstico de archivos AT03 al importar
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Motivo:** al cargar un período real, el Administrador necesita saber antes de importar qué está mal, vacío o fuera de formato, en qué línea y qué efecto tiene en el ranking.
+
+**Cambios**
+- **Motor de diagnóstico** (`server/src/engine/diagnose.js`): revisa estructura (separador, columnas, campos por fila), celdas vacías, espacios, tipos según el diccionario, ceros a la izquierda perdidos, dominios de los códigos, catálogos (bancos, SB21, CINU), campos que deben ser `NA` y coherencia interna (tramos, `Valor_Inicial`, fechas, mora, género). Clasifica en *bloqueante*, *afecta el cálculo* y *advertencia*, y calcula la vista previa E1–E4 con el mismo motor.
+- **Carga** (`server/src/store/store.js`): la vista previa devuelve el diagnóstico; un archivo con bloqueantes se rechaza con el diagnóstico y la línea del problema. La bitácora registra las observaciones.
+- **API** (`server/src/api/routes.js`): `POST /api/admin/periods/diagnostico.csv` descarga todas las observaciones (solo Administrador).
+- **Pantalla** (`client/src/components/Diagnostico.jsx`, `pages/Admin.jsx`): estado, resumen, tabla por período y observaciones desplegables con línea, valor, esperado y sugerencia.
+- **Ejemplo** (`server/scripts/ejemplo-errores.js`, `data/ejemplos/AT03_ejemplo_con_errores.csv`): 200 filas con errores típicos para la demo (`npm run ejemplo:errores`).
+- **Menú y calendario** (commit `668f71e`): selector de período tipo calendario y menú lateral plegable con ☰.
+
+**Verificación:** `npm test` 44 de 44 (nuevo `server/test/importacion.test.js` con 8 casos). Con los 3 archivos reales el diagnóstico no da advertencias falsas y su vista previa coincide campo por campo con el reporte de calidad. Recorrido en navegador: carga del ejemplo como Administrador, estado "con observaciones" y detalle de "cero a la izquierda perdido" (línea 2, `7` → `07`).
+
+---
+
+## 2da18a5 — Auditoría del backend: casos borde, seguridad y exportaciones
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 
 **Motivo:** auditoría completa del backend contra `INDICACIONES_RETO_RANKING_CREDITO.md` con la nueva skill `auditoria-backend`. Cada hallazgo se reprodujo antes de corregirlo.

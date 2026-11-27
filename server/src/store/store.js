@@ -8,6 +8,7 @@ import path from 'node:path';
 import { loadCatalogs, parseCatalog, buildCatalogs, CATALOG_FILES } from '../engine/catalogs.js';
 import { buildDataset, buildComparisons, readAt03 } from '../engine/pipeline.js';
 import { compareRankings, DEFAULT_PARAMS } from '../engine/compare.js';
+import { diagnosticarAt03 } from '../engine/diagnose.js';
 import { normalizar, defaultAsignaciones, tienePermiso, permisosDe, PERMISOS } from '../api/permisos.js';
 
 export class Store {
@@ -69,11 +70,16 @@ export class Store {
    */
   uploadPeriod(originalName, text, perfil, { dryRun = false } = {}) {
     let name = path.basename(originalName || 'periodo.csv').replace(/[^\w.\-]/g, '_').replace(/(\.csv)?$/i, '.csv');
+    // Diagnóstico completo antes de importar: campos vacíos, tipos, ceros perdidos, catálogos y vista previa E1–E4
+    const diagnostico = diagnosticarAt03(text, name, this.catalogs);
     const r = readAt03(text, name, this.catalogs.schema);
-    if (!r.ok) {
-      if (!dryRun) this.addLog(perfil, 'Carga rechazada', `${name}: ${r.errors.join(' ')}`);
-      const e = new Error('El archivo no cumple el formato AT03 del diccionario.');
-      e.status = 400; e.details = r.errors; throw e;
+    if (!r.ok || !diagnostico.importable) {
+      const bloqueos = diagnostico.hallazgos.filter((h) => h.gravedad === 'bloqueante')
+        .map((h) => `${h.regla}${h.campo.startsWith('(') ? '' : ` en ${h.campo}`}: ${h.cantidad} caso(s), primero en la línea ${h.ejemplos[0]?.linea}`);
+      const detalles = [...new Set([...(r.ok ? [] : r.errors), ...bloqueos])];
+      if (!dryRun) this.addLog(perfil, 'Carga rechazada', `${name}: ${detalles.join(' · ')}`);
+      const e = new Error('El archivo no se puede importar: revise los errores bloqueantes.');
+      e.status = 400; e.details = detalles; e.diagnostico = diagnostico; throw e;
     }
     const overlapping = this.#files().map((f) => ({ name: f.name, other: readAt03(f.text, f.name, this.catalogs.schema) }))
       .filter(({ other }) => other.ok && other.fechas.some((x) => r.fechas.includes(x)));
@@ -92,7 +98,7 @@ export class Store {
       finalName = name.replace(/\.csv$/i, `_${i}.csv`);
     }
     name = finalName;
-    const summary = { archivo: name, filas: r.totalRows, fechas: r.fechas, reemplaza: replaced, accion: replaced.length ? 'actualizar' : 'nuevo' };
+    const summary = { archivo: name, filas: r.totalRows, fechas: r.fechas, reemplaza: replaced, accion: replaced.length ? 'actualizar' : 'nuevo', diagnostico };
     if (dryRun) return summary;
 
     const prevFechas = this.periods.map((p) => p.fecha);
@@ -100,7 +106,7 @@ export class Store {
     for (const f of replaced) fs.renameSync(path.join(this.dir.periodos, f), path.join(this.dir.historial, `${stamp}_${f}`));
     fs.writeFileSync(path.join(this.dir.periodos, name), text, 'utf8');
     this.recalculate();
-    this.addLog(perfil, replaced.length ? 'Actualización de período' : 'Carga de período', `${name} (${r.totalRows} filas, Fecha ${r.fechas.join(', ')})${replaced.length ? `; reemplaza ${replaced.join(', ')}` : ''}. Recalculado en ${this.lastDurationMs} ms`);
+    this.addLog(perfil, replaced.length ? 'Actualización de período' : 'Carga de período', `${name} (${r.totalRows} filas, Fecha ${r.fechas.join(', ')})${replaced.length ? `; reemplaza ${replaced.join(', ')}` : ''}. Observaciones: ${diagnostico.totales.calculo} que afectan el cálculo, ${diagnostico.totales.advertencia} advertencias. Recalculado en ${this.lastDurationMs} ms`);
 
     // Movimientos detectados automáticamente frente al período anterior a cada fecha cargada
     const nuevos = r.fechas.map((fecha) => {

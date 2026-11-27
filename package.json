@@ -15,7 +15,8 @@
     "calc": "npm run calc -w server",
     "test": "npm test -w server",
     "demo:preparar": "node server/scripts/demo.js preparar",
-    "demo:restaurar": "node server/scripts/demo.js restaurar"
+    "demo:restaurar": "node server/scripts/demo.js restaurar",
+    "ejemplo:errores": "node server/scripts/ejemplo-errores.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

@@ -379,3 +379,22 @@ details.multi label:hover { background: var(--surface-2); }
 .chat-input { display: flex; gap: 8px; }
 .chat-input input { flex: 1; }
 code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+/* =================== Diagnóstico de archivos AT03 antes de importar =================== */
+.diag { display: flex; flex-direction: column; gap: 12px; }
+.diag-estado { display: flex; gap: 12px; align-items: flex-start; }
+.diag-estado .ico { width: 22px; height: 22px; margin-top: 2px; }
+.alert.diag-warn { background: var(--warn-bg); color: var(--warn); border-color: #efd9a4; }
+.diag-resumen { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; color: var(--text-secondary); }
+.diag-resumen b { color: var(--text-primary); }
+.diag-list { display: flex; flex-direction: column; gap: 6px; }
+.diag-list-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.diag-item { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-1); }
+.diag-item.bloqueante { border-left: 4px solid var(--bad); }
+.diag-item.calculo { border-left: 4px solid var(--gold); }
+.diag-item.advertencia { border-left: 4px solid var(--neutral); }
+.diag-item-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: none; border: 0; cursor: pointer; text-align: left; }
+.diag-item-head:hover { background: var(--surface-2); }
+.diag-regla { flex: 1; }
+.diag-n { color: var(--text-secondary); font-size: 12.5px; white-space: nowrap; }
+.diag-item .table-wrap { border: 0; border-top: 1px solid var(--border); border-radius: 0; }

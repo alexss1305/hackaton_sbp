@@ -5,6 +5,7 @@ import * as X from '../engine/exports.js';
 import { toCsv } from '../engine/csv.js';
 import { CATALOG_FILES } from '../engine/catalogs.js';
 import { preguntar, asistenteDisponible } from './asistente.js';
+import { diagnosticarAt03, hallazgosPlano } from '../engine/diagnose.js';
 
 export const FUENTE = 'Datos sintéticos con estructura regulatoria AT03 (Átomo 03) suministrados por la SBP para el Hackathon SBP 2026. '
   + 'Bancos, clientes y operaciones son ficticios. Uso informativo; no constituye opinión formal de la Superintendencia de Bancos de Panamá.';
@@ -152,6 +153,13 @@ export function buildRouter(store, passwords) {
     if (typeof req.body !== 'string' || !req.body.length) return res.status(400).json({ error: 'No se recibió ningún archivo CSV.' });
     res.json(store.uploadPeriod(req.query.nombre, req.body, req.perfil, { dryRun: req.query.dryRun === '1' }));
   }));
+  // Diagnóstico descargable (todas las observaciones con línea, valor y valor esperado)
+  r.post('/admin/periods/diagnostico.csv', admin, csvBody, wrap((req, res) => {
+    if (typeof req.body !== 'string' || !req.body.length) return res.status(400).json({ error: 'No se recibió ningún archivo CSV.' });
+    const nombre = String(req.query.nombre || 'archivo.csv');
+    const d = diagnosticarAt03(req.body, nombre, store.catalogs, { maxEjemplos: Infinity });
+    sendCsv(res, `diagnostico_${nombre.replace(/\.csv$/i, '')}.csv`, toCsv(hallazgosPlano(d), ['Gravedad', 'Regla', 'Campo', 'Total_En_Archivo', 'Linea', 'Valor', 'Esperado', 'Sugerencia']), { bom: req.query.bom === '1' });
+  }));
   r.delete('/admin/periods/:fecha', admin, wrap((req, res) => { store.deletePeriod(req.params.fecha, req.perfil); res.json({ ok: true }); }));
   r.post('/admin/recalculate', admin, (req, res) => {
     store.recalculate(); store.addLog(req.perfil, 'Recálculo manual', `${store.periods.length} períodos en ${store.lastDurationMs} ms`);
@@ -173,7 +181,7 @@ export function buildRouter(store, passwords) {
   r.use((err, req, res, _next) => {
     if (err.type === 'entity.too.large') return res.status(413).json({ error: 'El archivo supera el tamaño máximo (60 MB).' });
     if (!err.status) console.error(err);
-    res.status(err.status || 500).json({ error: err.message || 'Error interno', detalles: err.details });
+    res.status(err.status || 500).json({ error: err.message || 'Error interno', detalles: err.details, diagnostico: err.diagnostico });
   });
   return r;
 }

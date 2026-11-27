@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "calc": "node scripts/calc.js",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\"",
+    "ejemplo:errores": "node scripts/ejemplo-errores.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

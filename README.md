@@ -20,6 +20,7 @@ Otros comandos:
 |---|---|
 | `npm test` | Pruebas del motor de cálculo y de la API (node:test) |
 | `npm run calc` | Procesa `data/periodos/*.csv` por línea de comandos y escribe los entregables en `output/` |
+| `npm run ejemplo:errores` | Genera `data/ejemplos/AT03_ejemplo_con_errores.csv` (200 filas con errores típicos) para mostrar el diagnóstico de carga |
 | `npm run demo:preparar` / `demo:restaurar` | Deja cargados julio y agosto (septiembre pasa a `data/demo/`) para demostrar en vivo la carga de un nuevo período, y luego lo restaura |
 
 ### Perfiles
@@ -94,6 +95,24 @@ subactividad con mayor variación de saldo.
 4. Al terminar: `npm run demo:restaurar`.
 
 La matriz completa requisito → código → prueba está en [`docs/CUMPLIMIENTO.md`](docs/CUMPLIMIENTO.md).
+
+### Importar un período AT03 (diagnóstico antes de importar)
+En *Administración → Cargar o actualizar un período* el Administrador arrastra un archivo AT03 (CSV UTF-8 separado
+por comas, como los del reto). Antes de importar, la app lo revisa completo y muestra:
+
+- **Estado:** listo para importar, importable con observaciones, o rechazado.
+- **Vista previa por período:** filas leídas, E1–E4, universo local válido, saldo y reclasificaciones a Tarjeta,
+  calculados con las mismas reglas del motor (coinciden con el reporte de calidad).
+- **Observaciones por regla**, con línea, valor encontrado, valor esperado y sugerencia, en tres gravedades:
+
+| Gravedad | Qué significa | Ejemplos |
+|---|---|---|
+| Bloqueante | El archivo no se importa | separador `;`, columnas faltantes u otro orden, filas con más o menos campos (coma decimal `5,5`), `Fecha` vacía o imposible, `Saldo` ilegible (`12.345`) |
+| Afecta el cálculo | La fila se importa pero se excluye (E1–E4) o queda fuera de un catálogo | duplicado, `Destino` `l` o ` L`, saldo cero o negativo, CINU no catalogado o con espacios, banco no catalogado |
+| Advertencia | Dato fuera de formato que no cambia el ranking | celda vacía en vez de `NA`, cero a la izquierda perdido (`7` en vez de `07`), espacios, tipo inválido, valor fuera del dominio del diccionario, Saldo distinto de la suma de tramos, `Valor_Inicial < Saldo`, fechas incoherentes, `Perfil_Vencimiento`/`Dias_Mora`, `Genero`/`Tamano_Empresa` |
+
+El diagnóstico completo (todos los casos, no solo la muestra) se descarga en CSV. Las advertencias nunca excluyen
+filas: el reto solo permite excluir por E1–E4. Código: `server/src/engine/diagnose.js`.
 
 ### Reportes
 *Reportes* arma un documento con plantillas (ejecutivo, rankings detallados, comparación, calidad), filtros, bancos destacados y secciones a elegir, con vista previa y descarga en PDF (A4). Las reglas de diseño para ampliarlo están en la skill `.claude/skills/reportes-visuales/SKILL.md`.

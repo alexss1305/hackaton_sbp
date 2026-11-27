@@ -4,7 +4,7 @@ export const getToken = () => sessionStorage.getItem(TOKEN_KEY);
 export const setToken = (t) => (t ? sessionStorage.setItem(TOKEN_KEY, t) : sessionStorage.removeItem(TOKEN_KEY));
 
 export class ApiError extends Error {
-  constructor(message, status, detalles) { super(message); this.status = status; this.detalles = detalles; }
+  constructor(message, status, detalles, diagnostico) { super(message); this.status = status; this.detalles = detalles; this.diagnostico = diagnostico; }
 }
 
 export async function api(path, { method = 'GET', body, headers = {}, raw = false } = {}) {
@@ -21,14 +21,14 @@ export async function api(path, { method = 'GET', body, headers = {}, raw = fals
   if (!res.ok) {
     let data = {};
     try { data = await res.json(); } catch { /* sin cuerpo JSON */ }
-    throw new ApiError(data.error || `Error ${res.status}`, res.status, data.detalles);
+    throw new ApiError(data.error || `Error ${res.status}`, res.status, data.detalles, data.diagnostico);
   }
   return raw ? res : res.json();
 }
 
 /** Descarga un CSV de la API (con el token del perfil) como archivo. */
-export async function download(path, fallbackName = 'export.csv') {
-  const res = await api(path, { raw: true });
+export async function download(path, fallbackName = 'export.csv', opts = {}) {
+  const res = await api(path, { ...opts, raw: true });
   const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || fallbackName;
   const blob = await res.blob();
   const a = document.createElement('a');

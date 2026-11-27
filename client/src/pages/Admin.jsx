@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { api } from '../api.js';
+import { api, download } from '../api.js';
 import { useApi, ErrorBox, Loading, SortableTable, Badge, Select } from '../components/ui.jsx';
 import { fmtInt, fmtPeriodo, fmtFechaHora, fmtMoney, fmtRanking } from '../format.js';
+import Diagnostico from '../components/Diagnostico.jsx';
 
 const readFile = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(file, 'utf-8'); });
 
@@ -34,17 +35,23 @@ function Carga({ ctx }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
+  const [rechazo, setRechazo] = useState(null); // diagnóstico de un archivo que no se puede importar
 
   const pick = async (f) => {
-    setResult(null); setPreview(null); setError(null);
+    setResult(null); setPreview(null); setError(null); setRechazo(null);
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.csv')) { setError(new Error('El archivo debe ser .csv (formato AT03).')); return; }
+    if (!/\.(csv|txt)$/i.test(f.name)) { setError(new Error('El archivo debe ser .csv (formato AT03 separado por comas). Si viene de Excel, use "Guardar como → CSV UTF-8".')); return; }
     setFile(f); setBusy(true);
     try {
       const t = await readFile(f);
       setText(t);
       setPreview(await api(`/admin/periods?nombre=${encodeURIComponent(f.name)}&dryRun=1`, { method: 'POST', body: t, headers: { 'Content-Type': 'text/csv' } }));
-    } catch (e) { setError(e); setFile(null); } finally { setBusy(false); }
+    } catch (e) {
+      if (e.diagnostico) setRechazo(e.diagnostico); else setError(e);
+    } finally { setBusy(false); }
+  };
+  const descargarDiagnostico = async () => {
+    try { await download(`/admin/periods/diagnostico.csv?nombre=${encodeURIComponent(file.name)}&bom=1`, 'diagnostico.csv', { method: 'POST', body: text, headers: { 'Content-Type': 'text/csv' } }); } catch (e) { setError(e); }
   };
   const confirm = async () => {
     setBusy(true); setError(null);
@@ -64,17 +71,29 @@ function Carga({ ctx }) {
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files[0]); }}>
         <p>Arrastre aquí el archivo AT03 o</p>
-        <input type="file" accept=".csv,text/csv" onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} />
+        <input type="file" accept=".csv,.txt,text/csv" onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} />
       </div>
       {busy && <Loading />}
       <div style={{ marginTop: 12 }}><ErrorBox error={error} /></div>
-      {preview && (
-        <div className="alert info" style={{ marginTop: 12 }}>
-          <b>Archivo válido:</b> {preview.archivo} · {fmtInt(preview.filas)} filas · período(s) {preview.fechas.map(fmtPeriodo).join(', ')}.
-          {preview.reemplaza.length > 0 && <> <br /><b>Actualizará</b> el período existente (reemplaza {preview.reemplaza.join(', ')}).</>}
+      {rechazo && (
+        <div style={{ marginTop: 12 }}>
+          <Diagnostico diag={rechazo} onDescargar={descargarDiagnostico} />
           <div className="toolbar" style={{ marginTop: 10 }}>
-            <button className="btn primary" onClick={confirm} disabled={busy}>{preview.accion === 'nuevo' ? 'Cargar y recalcular' : 'Actualizar y recalcular'}</button>
-            <button className="btn" onClick={() => { setPreview(null); setFile(null); }}>Cancelar</button>
+            <button className="btn" onClick={() => { setRechazo(null); setFile(null); }}>Cerrar</button>
+          </div>
+        </div>
+      )}
+      {preview && (
+        <div style={{ marginTop: 12 }}>
+          {preview.diagnostico && <Diagnostico diag={preview.diagnostico} onDescargar={descargarDiagnostico} />}
+          <div className="alert info" style={{ marginTop: 12 }}>
+            {preview.reemplaza.length > 0
+              ? <><b>Actualizará</b> el período existente (reemplaza {preview.reemplaza.join(', ')}; el archivo anterior queda en historial).</>
+              : <><b>Período nuevo:</b> {preview.fechas.map(fmtPeriodo).join(', ')}.</>}
+            <div className="toolbar" style={{ marginTop: 10 }}>
+              <button className="btn primary" onClick={confirm} disabled={busy}>{preview.accion === 'nuevo' ? 'Importar y recalcular' : 'Actualizar y recalcular'}</button>
+              <button className="btn" onClick={() => { setPreview(null); setFile(null); }}>Cancelar</button>
+            </div>
           </div>
         </div>
       )}
