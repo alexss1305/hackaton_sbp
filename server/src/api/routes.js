@@ -1,5 +1,6 @@
 import express from 'express';
 import { comparacionRouter } from './comparacion.js';
+import { bancosRouter } from './bancos.js';
 import { authenticate, requirePerfil, login, logout, cambiarContrasena, PERFILES, esPerfil } from './auth.js';
 import { compareRankings } from '../engine/compare.js';
 import * as X from '../engine/exports.js';
@@ -123,6 +124,8 @@ export function buildRouter(store, passwords) {
     if (!gen) return next();
     sendCsv(res, `${t}${opts.fechas.length ? '_' + opts.fechas.join('-') : ''}.csv`, gen(), { bom: req.query.bom === '1' });
   }));
+
+  r.use(bancosRouter(store));
 
   // ---------- Análisis (Analista y Administrador) ----------
   r.use(comparacionRouter(store, permiso));

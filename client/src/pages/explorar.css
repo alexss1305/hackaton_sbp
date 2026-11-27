@@ -1,0 +1,7 @@
+/* Filtros y subactividades (frente B) */
+.ex-filtros { display: flex; flex-direction: column; gap: 12px; }
+.ex-seg { display: inline-flex; flex-wrap: wrap; align-self: flex-start; background: var(--surface-2); border-radius: 8px; padding: 3px; gap: 3px; }
+.ex-seg button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 7px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.ex-seg button .ico { width: 15px; height: 15px; }
+.ex-seg button.on { background: var(--surface-1); color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.ex-filtros input[type=number] { min-width: 130px; width: 150px; }

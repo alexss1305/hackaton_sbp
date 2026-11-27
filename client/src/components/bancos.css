@@ -1,0 +1,80 @@
+/* Fichas de bancos, tarjetas del panel y módulo Bancos (frente B) */
+.bf-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(14,16,60,.5); display: grid; place-items: center; padding: 20px; animation: bf-fade .2s ease; }
+.bf { background: var(--surface-1); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
+.bf.modal { width: min(980px, 100%); max-height: 92vh; box-shadow: 0 24px 60px rgba(0,0,0,.3); animation: bf-up .25s ease; }
+.bf.pagina { border: 1px solid var(--border); box-shadow: var(--shadow); }
+.bf-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-bottom: 2px solid var(--gold); }
+.bf-avatar, .bk-avatar { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(145deg, var(--navy), var(--violet)); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; flex: none; }
+.bf-title { flex: 1; display: flex; flex-direction: column; }
+.bf-close { border: 0; background: var(--surface-2); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; color: var(--navy); }
+.bf-steps { display: flex; gap: 4px; list-style: none; margin: 0; padding: 12px 22px; overflow-x: auto; border-bottom: 1px solid var(--border); }
+.bf-steps button { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 7px 12px; border-radius: 99px; cursor: pointer; color: var(--text-secondary); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.bf-steps button.on { background: var(--indigo); color: #fff; }
+.bf-steps button.done { color: var(--navy); }
+.bf-n { width: 22px; height: 22px; border-radius: 99px; display: grid; place-items: center; background: var(--surface-2); color: var(--navy); font-size: 11px; }
+.bf-steps button.on .bf-n { background: var(--gold); color: var(--navy); }
+.bf-body { padding: 18px 22px; overflow: auto; min-height: 260px; }
+.bf-foot { display: flex; justify-content: space-between; align-items: center; padding: 12px 22px; border-top: 1px solid var(--border); }
+.bf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.bf-kpi { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; animation: bf-up .3s ease both; }
+.bf-kpi span { font-size: 12px; color: var(--text-secondary); }
+.bf-kpi b { font-size: 21px; color: var(--navy); display: inline-flex; align-items: center; gap: 8px; }
+.bf-kpi b.up { color: var(--good); } .bf-kpi b.down { color: var(--bad); }
+.bf-kpi small { font-size: 11.5px; color: var(--text-secondary); }
+.bf-lidera { font-size: 15px !important; }
+.bf-rank { display: flex; flex-direction: column; gap: 8px; }
+.bf-rank-row { display: grid; grid-template-columns: 54px 1fr auto; gap: 14px; align-items: center; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+.bf-rank-row.lider { border-color: var(--gold); background: var(--gold-soft); }
+.bf-pos { font-size: 20px; font-weight: 800; color: var(--navy); text-align: center; }
+.bf-track { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+.bf-track i { display: block; height: 100%; background: var(--indigo); border-radius: 99px; animation: bf-grow .6s ease both; transform-origin: left; }
+.bf-rank-row.lider .bf-track i { background: var(--gold); }
+.bf-rank-num { text-align: right; display: flex; flex-direction: column; }
+.bf-rank-num small { color: var(--text-secondary); font-size: 11.5px; }
+.bf-subs { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.bf-sub-h { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.bf-stack { display: flex; gap: 2px; height: 16px; border-radius: 4px; overflow: hidden; background: var(--surface-2); }
+.bf-stack i { display: block; animation: bf-grow .6s ease both; transform-origin: left; }
+.bf-sub-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11.5px; color: var(--text-secondary); }
+.bf-sub-leg span { display: inline-flex; align-items: center; gap: 5px; }
+.bf-sub-leg i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.sem { width: 11px; height: 11px; border-radius: 99px; display: inline-block; flex: none; }
+.sem.verde { background: #16a34a; } .sem.ambar { background: #f2a600; } .sem.rojo { background: #dc2626; } .sem.neutro { background: var(--neutral); }
+
+/* Tarjetas de bancos (panel y módulo) */
+.bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.bk-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); padding: 14px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; text-align: left; color: var(--text-primary); transition: border-color .15s, box-shadow .15s, transform .15s; animation: bf-up .3s ease both; }
+.bk-card:hover, .bk-card:focus-visible { border-color: var(--indigo); box-shadow: 0 6px 18px rgba(22,25,63,.1); transform: translateY(-2px); outline: none; }
+.bk-top { display: flex; gap: 12px; align-items: center; }
+.bk-avatar { width: 40px; height: 40px; font-size: 14px; border-radius: 10px; }
+.bk-name { flex: 1; min-width: 0; }
+.bk-name b { display: block; color: var(--navy); }
+.bk-name span { font-size: 12px; color: var(--text-secondary); }
+.bk-cartera { display: flex; justify-content: space-between; align-items: baseline; }
+.bk-cartera b { font-size: 19px; color: var(--navy); }
+.bk-pos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.bk-pos span { text-align: center; border-radius: 6px; background: var(--surface-2); padding: 4px 0; font-size: 11px; color: var(--text-secondary); line-height: 1.2; }
+.bk-pos span b { display: block; font-size: 13px; color: var(--navy); }
+.bk-pos span.p1 { background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold); }
+.bk-foot { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); }
+.bk-foot span { display: inline-flex; align-items: center; gap: 6px; }
+.bk-lider { display: flex; flex-wrap: wrap; gap: 4px; }
+.bk-lider em { font-style: normal; font-size: 11px; background: var(--gold-soft); color: var(--gold-ink); border-radius: 99px; padding: 1px 8px; font-weight: 600; }
+
+/* Calidad de cartera con mini barras */
+.qc-list { display: flex; flex-direction: column; gap: 6px; }
+.qc-row { display: grid; grid-template-columns: 18px minmax(120px, 1.2fr) 2fr 70px; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; background: none; cursor: pointer; text-align: left; color: var(--text-primary); width: 100%; }
+.qc-row:hover { background: var(--surface-2); border-color: var(--border); }
+.qc-bars { display: flex; flex-direction: column; gap: 3px; }
+.qc-bar { display: grid; grid-template-columns: 70px 1fr; gap: 6px; align-items: center; font-size: 11px; color: var(--text-secondary); }
+.qc-bar div { height: 7px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.qc-bar i { display: block; height: 100%; border-radius: 99px; animation: bf-grow .6s ease both; transform-origin: left; }
+.qc-val { text-align: right; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+.verif { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--good); background: var(--good-bg); border: 0; border-radius: 99px; padding: 5px 12px; cursor: pointer; font-weight: 600; }
+.verif .ico { width: 14px; height: 14px; }
+
+@keyframes bf-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bf-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes bf-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .bf, .bf-kpi, .bk-card, .bf-track i, .bf-stack i, .qc-bar i, .bf-backdrop { animation: none !important; } .bk-card:hover { transform: none; } }
+@media (max-width: 700px) { .qc-row { grid-template-columns: 18px 1fr 60px; } .qc-bars { display: none; } .bf-rank-row { grid-template-columns: 44px 1fr; } .bf-rank-num { grid-column: 2; text-align: left; } }
