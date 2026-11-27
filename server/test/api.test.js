@@ -5,6 +5,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +14,8 @@ import { createApp } from '../src/app.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sbp-test-'));
-const PW = { analista: 'test-analista', administrador: 'test-admin' };
+// Contraseñas aleatorias por ejecución: ninguna contraseña queda escrita en el repositorio (R5)
+const PW = { analista: crypto.randomBytes(9).toString('base64url'), administrador: crypto.randomBytes(9).toString('base64url') };
 let server; let base;
 
 before(async () => {
@@ -88,4 +90,56 @@ test('administrador cambia la regla de movimiento significativo', async () => {
   assert.equal(p.minCambioPosicion, 12);
   const cmp = await (await fetch(`${base}/compare?desde=20260731&hasta=20260930`, { headers: h })).json();
   assert.equal(cmp.movimientos.filter((m) => m.Significativo).length, 0);
+});
+
+test('carga que retiraría otros períodos se rechaza con mensaje claro', async () => {
+  const t = await login('administrador', PW.administrador);
+  const jul = fs.readFileSync(path.join(root, 'data/periodos/AT03_sintetico_202607.csv'), 'utf8');
+  const ago = fs.readFileSync(path.join(root, 'data/periodos/AT03_sintetico_202608.csv'), 'utf8');
+  // un archivo combinado julio+agosto reemplaza a los dos archivos individuales (no pierde nada)
+  const header = jul.split('\r\n')[0];
+  const combinado = jul + ago.split('\r\n').slice(1).join('\r\n');
+  const ok = await upload(t, 'combinado.csv', combinado, '&dryRun=1');
+  assert.equal(ok.status, 200);
+  // ahora cargamos el combinado y luego intentamos reemplazarlo solo con julio: perdería agosto
+  assert.equal((await upload(t, 'combinado.csv', combinado)).status, 200);
+  const r = await upload(t, 'solo_julio.csv', jul);
+  assert.equal(r.status, 400);
+  assert.match((await r.json()).detalles.join(' '), /20260831/);
+  assert.ok(header.startsWith('Fecha,'));
+});
+
+test('permisos editables: el Administrador quita y concede permisos por perfil', async () => {
+  const t = await login('administrador', PW.administrador);
+  const h = { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' };
+  const cfg = await (await fetch(`${base}/admin/permisos`, { headers: h })).json();
+  const asig = structuredClone(cfg.asignaciones);
+  asig.descargar_calidad = ['analista']; // se lo quitamos al Público
+  asig.comparar_periodos = ['publico', 'analista']; // se lo damos al Público
+  asig.inventado = ['publico']; // clave desconocida: se ignora
+  const res = await (await fetch(`${base}/admin/permisos`, { method: 'PUT', headers: h, body: JSON.stringify({ asignaciones: asig }) })).json();
+  assert.equal(res.asignaciones.inventado, undefined);
+  assert.equal((await fetch(`${base}/export/calidad.csv`)).status, 403);
+  assert.equal((await fetch(`${base}/compare?desde=20260731&hasta=20260831`)).status, 200);
+  const meta = await (await fetch(`${base}/meta`)).json();
+  assert.ok(meta.permisos.includes('comparar_periodos') && !meta.permisos.includes('descargar_calidad'));
+  // el Administrador conserva todo aunque se intente quitar
+  assert.ok((await (await fetch(`${base}/auth/me`, { headers: h })).json()).permisos.includes('descargar_calidad'));
+  // las acciones de administración no son configurables para otros perfiles
+  const ta = await login('analista', PW.analista);
+  assert.equal((await fetch(`${base}/admin/permisos`, { headers: { Authorization: `Bearer ${ta}` } })).status, 403);
+  // restaurar valores por defecto
+  await fetch(`${base}/admin/permisos/restaurar`, { method: 'POST', headers: h });
+  assert.equal((await fetch(`${base}/export/calidad.csv`)).status, 200);
+  assert.equal((await fetch(`${base}/compare?desde=20260731&hasta=20260831`)).status, 403);
+});
+
+test('asistente de IA: requiere permiso y responde 503 claro si no hay clave configurada', async () => {
+  const body = JSON.stringify({ fecha: '20260831', pregunta: '¿Quién lidera HIPOTECARIO?' });
+  assert.equal((await fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, 403);
+  if (process.env.ANTHROPIC_API_KEY) return; // con clave real no se llama al servicio en las pruebas
+  const t = await login('analista', PW.analista);
+  const r = await fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body });
+  assert.equal(r.status, 503);
+  assert.match((await r.json()).error, /ANTHROPIC_API_KEY/);
 });

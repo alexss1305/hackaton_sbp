@@ -18,8 +18,11 @@ reglas del reto. Léela completa antes de tocar `client/src/pages/Reportes.jsx` 
    `fmtPct(v, 4)` para ponderación (4 decimales exigidos) y `fmtPct(v, 2)` para variaciones.
 3. **Todo reporte muestra fuente, período y aviso de datos ficticios** (lámina 9). Usar `ReportHeader`, que
    incluye el sello "DATOS FICTICIOS" y `meta.fuente`.
-4. **Perfiles:** lo que es de Analista (`nivel >= 2`: movimientos, comparación, excluidas, alertas) no se ofrece al
-   Público. El servidor ya lo bloquea; el frontend debe ocultarlo o mostrarlo deshabilitado con la etiqueta "Analista".
+4. **Permisos, no niveles:** cada función se habilita con `ctx.puede('<clave>')` (claves en
+   `server/src/api/permisos.js`: `comparar_periodos`, `descargar_movimientos`, `descargar_rankings`, …). El Administrador
+   las edita en vivo, así que **nunca** use `nivel >= 2` para decidir qué mostrar. El servidor ya bloquea con 403; el
+   frontend oculta el botón o lo muestra deshabilitado con "sin permiso". Una sección nueva que dependa de un permiso
+   lleva `permiso: '<clave>'` en `SECCIONES`.
 5. **La IA no calcula rankings.** Las explicaciones de movimientos son deterministas (`compare.js`); si se agrega
    IA, solo para explicar o consultar, con los números ya calculados como entrada.
 6. **Los CSV oficiales no cambian de columnas** (`server/src/engine/exports.js` → `COLUMNS`). Un reporte visual
@@ -90,7 +93,7 @@ Filtros en una fila arriba del contenido.
      );
    }
    ```
-2. En `Reportes.jsx`: agregar `{ id, label, min }` a `SECCIONES` (`min: 2` si es de Analista), renderizarla en el
+2. En `Reportes.jsx`: agregar `{ id, label, permiso? }` a `SECCIONES`, renderizarla en el
    bloque que arma `secs` y, si aplica, incluirla en alguna entrada de `PLANTILLAS`.
 3. Si necesita datos nuevos, agregarlos en el **servidor** (motor o ruta), con prueba en `server/test/`, nunca
    calculándolos en el cliente.
@@ -101,5 +104,6 @@ Filtros en una fila arriba del contenido.
 - [ ] `npm test` en la raíz sigue en verde si se tocó el servidor.
 - [ ] Revisar la pantalla y el PDF (botón "Descargar PDF / Imprimir"): sin textos encimados, tablas completas,
       una sección no partida entre hojas, encabezado con período y sello de datos ficticios.
-- [ ] Probar como **Público** (no debe ver movimientos ni comparaciones) y como **Analista**.
+- [ ] Probar como **Público** (no debe ver movimientos ni comparaciones con los permisos por defecto) y como **Analista**;
+      si se agregó un permiso, quitarlo en *Administración → Perfiles y permisos* y confirmar que la opción desaparece.
 - [ ] Las cifras mostradas coinciden con `output/rankings.csv` (`npm run calc`) para el período elegido.

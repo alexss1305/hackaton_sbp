@@ -3,14 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "description": "Plataforma local de rankings de crédito AT03 - Hackathon SBP 2026",
-  "workspaces": ["server", "client"],
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "setup": "npm install && node server/scripts/setup-env.js",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "calc": "npm run calc -w server",
-    "test": "npm test -w server"
+    "test": "npm test -w server",
+    "demo:preparar": "node server/scripts/demo.js preparar",
+    "demo:restaurar": "node server/scripts/demo.js restaurar"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

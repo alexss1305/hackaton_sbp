@@ -1,5 +1,5 @@
 import { parseCsv } from './csv.js';
-import { validateAt03, referentialAlerts } from './validate.js';
+import { validateAt03, referentialAlerts, typeAlerts } from './validate.js';
 import { applyCascade, FILTERS } from './cascade.js';
 import { classify } from './classify.js';
 import { aggregate } from './aggregate.js';
@@ -26,7 +26,7 @@ export function readAt03(text, fileName, schema) {
 
 /** Procesa UN período completo: validación referencial, cascada E1–E4, clasificación y agregación. */
 export function processPeriod(fecha, rows, catalogs, archivos = []) {
-  const refAlerts = referentialAlerts(rows, catalogs);
+  const refAlerts = [...typeAlerts(rows, catalogs), ...referentialAlerts(rows, catalogs)];
   const { universe, excluded, counts, independent } = applyCascade(rows, catalogs.cinuMap);
   const { rows: classified, alerts: consumoAlerts, reclasificadas } = classify(universe, catalogs.cinuMap);
   const agg = aggregate(fecha, classified, catalogs);
@@ -57,6 +57,10 @@ export function processPeriod(fecha, rows, catalogs, archivos = []) {
       Reclasificadas_Tarjeta_SB21: reclasificadas,
       Alertas: refAlerts.length + consumoAlerts.length,
       Conteo_Independiente: independent,
+      Indep_E1: independent.E1,
+      Indep_E2: independent.E2,
+      Indep_E3: independent.E3,
+      Indep_E4: independent.E4,
       Reconciliacion_1: agg.reconciliaciones.r1.ok,
       Reconciliacion_2: agg.reconciliaciones.r2.ok,
       Reconciliacion_3: agg.reconciliaciones.r3.ok,

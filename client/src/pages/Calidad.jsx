@@ -3,7 +3,7 @@ import { download, qs } from '../api.js';
 import { fmtInt, fmtMoney, fmtPeriodo } from '../format.js';
 
 export default function Calidad({ ctx }) {
-  const { fecha, nivel } = ctx;
+  const { fecha, puede } = ctx;
   const { data, error, loading } = useApi(`/periods/${fecha}/quality`);
   if (error) return <ErrorBox error={error} />;
   if (loading || !data) return <Loading />;
@@ -25,8 +25,8 @@ export default function Calidad({ ctx }) {
           <p>Exclusiones en cascada: cada filtro se aplica sobre las filas que superaron el anterior y cada fila excluida se cuenta una sola vez, en el primer filtro que incumple.</p>
         </div>
         <div className="toolbar">
-          <button className="btn" onClick={() => download(`/export/calidad.csv`)}>⬇ Reporte de calidad (todos los períodos)</button>
-          {nivel >= 2 && <button className="btn" onClick={() => download(`/export/excluidas.csv${qs({ fechas: [fecha] })}`)}>⬇ Filas excluidas</button>}
+          {puede('descargar_calidad') && <button className="btn" onClick={() => download('/export/calidad.csv')}>⬇ Reporte de calidad (todos los períodos)</button>}
+          {puede('descargar_excluidas') && <button className="btn" onClick={() => download(`/export/excluidas.csv${qs({ fechas: [fecha] })}`)}>⬇ Filas excluidas</button>}
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export default function Calidad({ ctx }) {
 
       <div className="card">
         <h2>Filas excluidas (trazabilidad)</h2>
-        <p className="sub">Mostrando {fmtInt(data.excluidas.length)} de {fmtInt(data.totalExcluidas)}. {nivel >= 2 ? 'Descargue la lista completa con el botón superior.' : 'La lista completa está disponible para Analista y Administrador.'}</p>
+        <p className="sub">Mostrando {fmtInt(data.excluidas.length)} de {fmtInt(data.totalExcluidas)}. {puede('descargar_excluidas') ? 'Descargue la lista completa con el botón superior.' : 'La descarga de la lista completa requiere permiso (Analista por defecto).'}</p>
         <SortableTable rows={data.excluidas} maxHeight={380} rowKey={(r) => `${r.Archivo}-${r.Linea_Archivo}`} columns={[
           { key: 'Filtro', label: 'Filtro' }, { key: 'Motivo', label: 'Motivo' },
           { key: 'Linea_Archivo', label: 'Línea', num: true }, { key: 'Numero_Prestamo', label: 'Préstamo' },

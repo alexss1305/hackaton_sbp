@@ -56,3 +56,38 @@ export function referentialAlerts(rows, catalogs) {
   }
   return alerts;
 }
+
+/** Reglas de tipo según la columna `Tipo` del diccionario AT03. */
+const TYPE_RULES = {
+  'Fecha (AAAAMMDD)': { test: (v) => /^\d{8}$/.test(v), desc: 'fecha AAAAMMDD' },
+  'Fecha/Texto': { test: (v) => v === 'NA' || /^\d{8}$/.test(v), desc: 'fecha AAAAMMDD o NA' },
+  'Numerico (Decimal)': { test: (v) => v === 'NA' || /^-?\d+(\.\d+)?$/.test(v), desc: 'número decimal con punto' },
+  'Numerico (Entero)': { test: (v) => v === 'NA' || /^-?\d+$/.test(v), desc: 'número entero' },
+  'Codigo (Texto)': { test: (v) => v.trim() !== '' && v === v.trim(), desc: 'código no vacío y sin espacios' },
+  Texto: { test: (v) => v.trim() !== '', desc: 'texto no vacío' },
+};
+
+/**
+ * Tipos de datos y campos mínimos (Sección 4.A), guiados por el diccionario.
+ * Son ALERTAS agrupadas por campo: el reto solo permite excluir filas por E1–E4.
+ * (Fecha y Saldo inválidos ya rechazan el archivo completo en validateAt03.)
+ */
+export function typeAlerts(rows, catalogs) {
+  const fields = catalogs.raw.diccionario.map((d) => ({ campo: d.Campo, tipo: d.Tipo, rule: TYPE_RULES[d.Tipo] })).filter((f) => f.rule);
+  const bad = new Map(); // campo -> { tipo, desc, lines[] }
+  for (const r of rows) {
+    for (const f of fields) {
+      const v = r[f.campo] ?? '';
+      if (!f.rule.test(v)) {
+        if (!bad.has(f.campo)) bad.set(f.campo, { tipo: f.tipo, desc: f.rule.desc, lines: [], ejemplo: v });
+        bad.get(f.campo).lines.push(r._line);
+      }
+    }
+  }
+  const fecha = rows[0]?.Fecha;
+  return [...bad.entries()].map(([campo, b]) => ({
+    Fecha: fecha, Tipo: 'Tipo de dato inválido', Numero_Prestamo: '', Codigo_Banco: '',
+    Linea_Archivo: b.lines[0],
+    Mensaje: `${campo} (${b.tipo}): ${b.lines.length} valor(es) que no son ${b.desc}; ej. "${b.ejemplo}" en líneas ${list(b.lines)}`,
+  }));
+}

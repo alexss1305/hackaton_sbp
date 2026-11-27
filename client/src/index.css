@@ -255,3 +255,19 @@ details.multi label:hover { background: var(--surface-2); }
   .r-section { break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* =================== Asistente IA =================== */
+.chat { display: flex; flex-direction: column; gap: 10px; }
+.chat-log { min-height: 320px; max-height: 60vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+.chat-empty { margin: auto 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--border); background: var(--surface-2); border-radius: 99px; padding: 6px 12px; cursor: pointer; text-align: left; }
+.chip:hover { border-color: var(--accent); }
+.bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); }
+.bubble.user { align-self: flex-end; background: color-mix(in srgb, var(--accent) 12%, var(--surface-1)); }
+.bubble.assistant { align-self: flex-start; background: var(--surface-2); }
+.bubble .who { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin-bottom: 4px; }
+.chat-bullet { padding-left: 4px; margin: 2px 0; }
+.chat-input { display: flex; gap: 8px; }
+.chat-input input { flex: 1; }
+code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }

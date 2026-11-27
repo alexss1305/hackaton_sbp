@@ -4,7 +4,7 @@ import { toCsv } from './csv.js';
 export const COLUMNS = {
   rankings: ['Fecha', 'Ranking', 'Posicion', 'Codigo_Banco', 'Banco', 'Saldo_Actividad', 'Total_Cartera_Local_Valida', 'Ponderacion_Pct', 'Operaciones_Validas'],
   subactividades: ['Fecha', 'Ranking', 'Subactividad', 'Codigo_Banco', 'Saldo', 'Banco', 'Operaciones'],
-  calidad: ['Fecha', 'Filas_Leidas', 'E1_Duplicados', 'E2_Destino_Extranjero', 'E3_Saldo_No_Positivo', 'E4_Actividad_No_Catalogada', 'Universo_Local_Valido', 'Saldo_Universo_Local_Valido', 'Cuadre_Cascada', 'Prestamos_Unicos_En_Universo', 'Reclasificadas_Tarjeta_SB21', 'Alertas', 'Reconciliacion_1', 'Reconciliacion_2', 'Reconciliacion_3'],
+  calidad: ['Fecha', 'Filas_Leidas', 'E1_Duplicados', 'E2_Destino_Extranjero', 'E3_Saldo_No_Positivo', 'E4_Actividad_No_Catalogada', 'Universo_Local_Valido', 'Saldo_Universo_Local_Valido', 'Indep_E1', 'Indep_E2', 'Indep_E3', 'Indep_E4', 'Cuadre_Cascada', 'Prestamos_Unicos_En_Universo', 'Reclasificadas_Tarjeta_SB21', 'Alertas', 'Reconciliacion_1', 'Reconciliacion_2', 'Reconciliacion_3'],
   movimientos: ['Fecha_Anterior', 'Fecha_Actual', 'Ranking', 'Codigo_Banco', 'Banco', 'Posicion_Anterior', 'Posicion_Actual', 'Cambio_Posicion', 'Tendencia', 'Saldo_Anterior', 'Saldo_Actual', 'Var_Saldo', 'Var_Saldo_Pct', 'Significativo', 'Motivo_Significativo', 'Explicacion'],
   excluidas: ['Fecha', 'Archivo', 'Linea_Archivo', 'Filtro', 'Motivo', 'Numero_Prestamo', 'Codigo_Banco', 'Destino', 'Saldo', 'Tipo_Actividad'],
   alertas: ['Fecha', 'Tipo', 'Numero_Prestamo', 'Codigo_Banco', 'Linea_Archivo', 'Mensaje'],

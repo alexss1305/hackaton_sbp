@@ -24,7 +24,7 @@ export default function Rankings({ ctx }) {
           <h1>Consulta de rankings</h1>
           <p>Posición de cada banco por saldo de la actividad (mayor saldo = posición 1; empate por código de banco). Ponderación = saldo de la actividad / cartera local válida total del banco.</p>
         </div>
-        <button className="btn" onClick={() => download(`/export/rankings.csv${qs({ fechas: [fecha], rankings: [ranking] })}`)}>⬇ Descargar CSV</button>
+        {ctx.puede('descargar_rankings') && <button className="btn" onClick={() => download(`/export/rankings.csv${qs({ fechas: [fecha], rankings: [ranking] })}`)}>⬇ Descargar CSV</button>}
       </div>
 
       <div className="toolbar">

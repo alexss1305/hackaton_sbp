@@ -7,29 +7,41 @@ import {
   MovimientosSection, CalidadSection, IndicadoresSection, NotaMetodologica,
 } from '../components/report/sections.jsx';
 
-/** Secciones disponibles; `min` = nivel de perfil requerido (1 público, 2 analista). */
+/** Secciones disponibles; `permiso` = permiso requerido (configurable por el Administrador). */
 const SECCIONES = [
-  { id: 'kpis', label: 'Resumen del período', min: 1 },
-  { id: 'lideres', label: 'Líderes y concentración', min: 1 },
-  { id: 'heatmap', label: 'Perfil de cartera (mapa de calor)', min: 1 },
-  { id: 'rankings', label: 'Rankings con gráfico y composición', min: 1 },
-  { id: 'movimientos', label: 'Movimientos y explicación automática', min: 2 },
-  { id: 'calidad', label: 'Calidad de datos y reconciliaciones', min: 1 },
-  { id: 'indicadores', label: 'Indicadores complementarios (morosidad)', min: 1 },
-  { id: 'nota', label: 'Nota metodológica', min: 1 },
+  { id: 'kpis', label: 'Resumen del período' },
+  { id: 'lideres', label: 'Líderes y concentración' },
+  { id: 'heatmap', label: 'Perfil de cartera (mapa de calor)' },
+  { id: 'rankings', label: 'Rankings con gráfico y composición' },
+  { id: 'movimientos', label: 'Movimientos y explicación automática', permiso: 'comparar_periodos' },
+  { id: 'calidad', label: 'Calidad de datos y reconciliaciones' },
+  { id: 'indicadores', label: 'Indicadores complementarios (morosidad)' },
+  { id: 'nota', label: 'Nota metodológica' },
 ];
 
 const PLANTILLAS = {
   ejecutivo: { label: 'Reporte ejecutivo', titulo: 'Reporte ejecutivo de rankings de crédito', secciones: ['kpis', 'lideres', 'heatmap', 'movimientos', 'calidad', 'nota'], topN: 5 },
   rankings: { label: 'Rankings detallados', titulo: 'Rankings de crédito por actividad económica', secciones: ['kpis', 'rankings', 'nota'], topN: 12 },
-  comparacion: { label: 'Comparación de períodos', titulo: 'Movimientos de posición entre períodos', secciones: ['kpis', 'movimientos', 'heatmap', 'nota'], topN: 5, min: 2 },
+  comparacion: { label: 'Comparación de períodos', titulo: 'Movimientos de posición entre períodos', secciones: ['kpis', 'movimientos', 'heatmap', 'nota'], topN: 5, permiso: 'comparar_periodos' },
   calidad: { label: 'Calidad de datos', titulo: 'Reporte de calidad de datos AT03', secciones: ['kpis', 'calidad', 'indicadores', 'nota'], topN: 5 },
 };
 
+/** Descargas CSV oficiales y el permiso que exige cada una. */
+const DESCARGAS = [
+  { label: 'Rankings ({periodo})', permiso: 'descargar_rankings', path: (f, rk) => `/export/rankings.csv${qs({ fechas: [f], rankings: rk })}` },
+  { label: 'Subactividades ({periodo})', permiso: 'descargar_subactividades', path: (f, rk) => `/export/subactividades.csv${qs({ fechas: [f], rankings: rk })}` },
+  { label: 'Rankings (todos los períodos)', permiso: 'descargar_rankings', path: () => '/export/rankings.csv' },
+  { label: 'Subactividades (todos los períodos)', permiso: 'descargar_subactividades', path: () => '/export/subactividades.csv' },
+  { label: 'Calidad (todos los períodos)', permiso: 'descargar_calidad', path: () => '/export/calidad.csv' },
+  { label: 'Movimientos (todos)', permiso: 'descargar_movimientos', path: () => '/export/movimientos.csv' },
+  { label: 'Filas excluidas', permiso: 'descargar_excluidas', path: () => '/export/excluidas.csv' },
+  { label: 'Alertas de calidad', permiso: 'descargar_alertas', path: () => '/export/alertas.csv' },
+];
+
 export default function Reportes({ ctx }) {
-  const { meta, nivel, fecha: fechaGlobal } = ctx;
+  const { meta, puede, perfilNombre, fecha: fechaGlobal } = ctx;
+  const ok = (x) => !x.permiso || puede(x.permiso);
   const fechas = meta.periodos.map((p) => p.fecha);
-  const perfilNombre = { 1: 'Público', 2: 'Analista', 3: 'Administrador' }[nivel];
 
   const [plantilla, setPlantilla] = useState('ejecutivo');
   const [titulo, setTitulo] = useState(PLANTILLAS.ejecutivo.titulo);
@@ -46,7 +58,7 @@ export default function Reportes({ ctx }) {
     const p = PLANTILLAS[k];
     setPlantilla(k); setTitulo(p.titulo); setSecciones(p.secciones); setTopN(p.topN);
   };
-  const permitidas = SECCIONES.filter((s) => nivel >= s.min);
+  const permitidas = SECCIONES.filter(ok);
   const activas = permitidas.filter((s) => secciones.includes(s.id)).map((s) => s.id);
   const rks = rankings.length ? meta.rankings.filter((r) => rankings.includes(r)) : meta.rankings;
   const conMovs = activas.includes('movimientos') && desde && desde !== fecha;
@@ -106,7 +118,7 @@ export default function Reportes({ ctx }) {
         <aside className="card report-builder no-print">
           <h3>1. Plantilla</h3>
           <div className="tpl-grid">
-            {Object.entries(PLANTILLAS).filter(([, p]) => nivel >= (p.min || 1)).map(([k, p]) => (
+            {Object.entries(PLANTILLAS).filter(([, p]) => ok(p)).map(([k, p]) => (
               <button key={k} className={`tpl ${plantilla === k ? 'on' : ''}`} onClick={() => aplicarPlantilla(k)}>{p.label}</button>
             ))}
           </div>
@@ -114,7 +126,7 @@ export default function Reportes({ ctx }) {
           <h3>2. Contenido</h3>
           <label className="field">Título<input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} /></label>
           <Select label="Período" value={fecha} onChange={(f) => { setFecha(f); setDesde(fechas[fechas.indexOf(f) - 1] || ''); }} options={fechas.map((f) => ({ value: f, label: fmtPeriodo(f) }))} />
-          {nivel >= 2 && (
+          {puede('comparar_periodos') && (
             <Select label="Comparar contra" value={desde} onChange={setDesde}
               options={[{ value: '', label: 'Sin comparación' }, ...fechas.filter((f) => f !== fecha).map((f) => ({ value: f, label: fmtPeriodo(f) }))]} />
           )}
@@ -125,9 +137,9 @@ export default function Reportes({ ctx }) {
           <h3>3. Secciones</h3>
           <div className="sec-list">
             {SECCIONES.map((s) => (
-              <label key={s.id} className={nivel < s.min ? 'disabled' : ''} title={nivel < s.min ? 'Disponible para Analista' : ''}>
-                <input type="checkbox" disabled={nivel < s.min} checked={activas.includes(s.id)} onChange={() => toggleSec(s.id)} />
-                {s.label}{nivel < s.min && <small> · Analista</small>}
+              <label key={s.id} className={ok(s) ? '' : 'disabled'} title={ok(s) ? '' : 'Su perfil no tiene este permiso'}>
+                <input type="checkbox" disabled={!ok(s)} checked={activas.includes(s.id)} onChange={() => toggleSec(s.id)} />
+                {s.label}{!ok(s) && <small> · sin permiso</small>}
               </label>
             ))}
           </div>
@@ -136,15 +148,10 @@ export default function Reportes({ ctx }) {
           <details className="downloads">
             <summary>Datos oficiales en CSV</summary>
             <div className="dl-list">
-              <button className="btn" onClick={() => run(`/export/rankings.csv${qs({ fechas: [fecha], rankings, bancos: [] })}`)}>⬇ Rankings ({fmtPeriodo(fecha)})</button>
-              <button className="btn" onClick={() => run(`/export/subactividades.csv${qs({ fechas: [fecha], rankings })}`)}>⬇ Subactividades</button>
-              <button className="btn" onClick={() => run('/export/calidad.csv')}>⬇ Calidad (todos los períodos)</button>
-              <button className="btn" onClick={() => run('/export/rankings.csv')}>⬇ Rankings (todos los períodos)</button>
-              {nivel >= 2 && <>
-                <button className="btn" onClick={() => run('/export/movimientos.csv')}>⬇ Movimientos (todos)</button>
-                <button className="btn" onClick={() => run('/export/excluidas.csv')}>⬇ Filas excluidas</button>
-                <button className="btn" onClick={() => run('/export/alertas.csv')}>⬇ Alertas</button>
-              </>}
+              {DESCARGAS.filter((d) => puede(d.permiso)).map((d) => (
+                <button key={d.label} className="btn" onClick={() => run(d.path(fecha, rankings))}>⬇ {d.label.replace('{periodo}', fmtPeriodo(fecha))}</button>
+              ))}
+              {!DESCARGAS.some((d) => puede(d.permiso)) && <p className="muted" style={{ fontSize: 12 }}>Su perfil no tiene descargas habilitadas.</p>}
             </div>
           </details>
         </aside>

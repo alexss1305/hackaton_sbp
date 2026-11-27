@@ -4,6 +4,7 @@ import { compareRankings } from '../engine/compare.js';
 import * as X from '../engine/exports.js';
 import { toCsv } from '../engine/csv.js';
 import { CATALOG_FILES } from '../engine/catalogs.js';
+import { preguntar, asistenteDisponible } from './asistente.js';
 
 export const FUENTE = 'Datos sintéticos con estructura regulatoria AT03 (Átomo 03) suministrados por la SBP para el Hackathon SBP 2026. '
   + 'Bancos, clientes y operaciones son ficticios. Uso informativo; no constituye opinión formal de la Superintendencia de Bancos de Panamá.';
@@ -20,6 +21,8 @@ function sendCsv(res, name, csv) {
 export function buildRouter(store, passwords) {
   const r = express.Router();
   r.use(authenticate);
+  const permiso = (clave) => (req, res, next) => (store.tiene(req.perfil, clave) ? next()
+    : res.status(403).json({ error: `Su perfil (${PERFILES[req.perfil].nombre}) no tiene permiso para esta función. El Administrador puede habilitarlo en Administración → Permisos.` }));
 
   // ---------- Sesión ----------
   r.post('/auth/login', express.json(), (req, res) => {
@@ -30,7 +33,7 @@ export function buildRouter(store, passwords) {
     res.json({ token, perfil, nombre: PERFILES[perfil].nombre });
   });
   r.post('/auth/logout', (req, res) => { if (req.token) logout(req.token); res.json({ ok: true }); });
-  r.get('/auth/me', (req, res) => res.json({ perfil: req.perfil, nombre: PERFILES[req.perfil].nombre }));
+  r.get('/auth/me', (req, res) => res.json({ perfil: req.perfil, nombre: PERFILES[req.perfil].nombre, permisos: store.permisosDe(req.perfil) }));
 
   // ---------- Consulta (todos los perfiles) ----------
   r.get('/meta', (req, res) => {
@@ -43,6 +46,8 @@ export function buildRouter(store, passwords) {
       subactividades: c.subsByMacro,
       bancos: c.bancos,
       params: store.params,
+      permisos: store.permisosDe(req.perfil),
+      asistenteDisponible: asistenteDisponible(),
       erroresArchivos: store.fileErrors,
     });
   });
@@ -89,8 +94,8 @@ export function buildRouter(store, passwords) {
   r.get('/export/:tipo.csv', wrap((req, res, next) => {
     const opts = { fechas: list(req.query.fechas), rankings: list(req.query.rankings), bancos: list(req.query.bancos), subactividades: list(req.query.subactividades) };
     const t = req.params.tipo;
-    const analyst = ['movimientos', 'excluidas', 'alertas'];
-    if (analyst.includes(t) && PERFILES[req.perfil].nivel < 2) return res.status(403).json({ error: 'Esta descarga está disponible para Analista o Administrador.' });
+    const clave = { rankings: 'descargar_rankings', subactividades: 'descargar_subactividades', calidad: 'descargar_calidad', excluidas: 'descargar_excluidas', alertas: 'descargar_alertas', movimientos: 'descargar_movimientos' }[t];
+    if (clave && !store.tiene(req.perfil, clave)) return res.status(403).json({ error: `Su perfil (${PERFILES[req.perfil].nombre}) no tiene permiso para esta descarga. El Administrador puede habilitarlo.` });
     const gen = {
       rankings: () => X.exportRankings(store.periods, opts),
       subactividades: () => X.exportSubactividades(store.periods, opts),
@@ -111,11 +116,11 @@ export function buildRouter(store, passwords) {
   }));
 
   // ---------- Análisis (Analista y Administrador) ----------
-  r.get('/comparisons', requirePerfil('analista'), (req, res) => {
+  r.get('/comparisons', permiso('comparar_periodos'), (req, res) => {
     res.json(store.comparisons.map((c) => ({ desde: c.desde, hasta: c.hasta, tipo: c.tipo, significativos: c.movimientos.filter((m) => m.Significativo).length })));
   });
 
-  r.get('/compare', requirePerfil('analista'), wrap((req, res) => {
+  r.get('/compare', permiso('comparar_periodos'), wrap((req, res) => {
     const { desde, hasta } = req.query;
     if (!desde || !hasta || desde === hasta) return res.status(400).json({ error: 'Seleccione dos períodos distintos.' });
     const movs = compareRankings(store.period(desde), store.period(hasta), store.params);
@@ -123,9 +128,14 @@ export function buildRouter(store, passwords) {
   }));
 
   // Serie histórica de posiciones y saldos por banco (para evolución y comparación de entidades)
-  r.get('/series', requirePerfil('analista'), (req, res) => {
+  r.get('/series', permiso('comparar_periodos'), (req, res) => {
     const rk = req.query.ranking || store.catalogs.macros[0];
     res.json(store.periods.map((p) => ({ fecha: p.fecha, filas: (p.rankings[rk] || []).map(({ Codigo_Banco, Banco, Posicion, Saldo_Actividad, Ponderacion_Pct }) => ({ Codigo_Banco, Banco, Posicion, Saldo_Actividad: Number(Saldo_Actividad), Ponderacion_Pct: Number(Ponderacion_Pct) })) })));
+  });
+
+  // ---------- Asistente de IA (explica resultados ya calculados) ----------
+  r.post('/asistente', permiso('asistente_ia'), express.json({ limit: '200kb' }), async (req, res, next) => {
+    try { res.json(await preguntar(store, req.body || {})); } catch (e) { next(e); }
   });
 
   // ---------- Administración ----------
@@ -148,6 +158,9 @@ export function buildRouter(store, passwords) {
   });
   r.put('/admin/catalogs/:kind', admin, csvBody, wrap((req, res) => { store.updateCatalog(req.params.kind, req.body, req.perfil); res.json({ ok: true }); }));
   r.get('/admin/log', admin, (req, res) => res.json(store.log));
+  r.get('/admin/permisos', admin, (req, res) => res.json(store.permisosConfig()));
+  r.put('/admin/permisos', admin, express.json(), wrap((req, res) => res.json(store.updatePermisos(req.body?.asignaciones, req.perfil))));
+  r.post('/admin/permisos/restaurar', admin, wrap((req, res) => res.json(store.updatePermisos(null, req.perfil, { restaurar: true }))));
 
   r.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
   // eslint-disable-next-line no-unused-vars

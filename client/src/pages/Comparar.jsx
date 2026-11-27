@@ -31,7 +31,7 @@ export default function Comparar({ ctx }) {
           <p>Cambio_Posicion = posición anterior − posición actual (positivo = sube). Var_Saldo_Pct = (saldo actual − anterior) / anterior × 100.</p>
         </div>
         <div className="toolbar no-print">
-          <button className="btn" disabled={!valid} onClick={() => download(`/export/movimientos.csv${qs({ desde, hasta, rankings: ranking === '*' ? [] : [ranking], solo: solo ? '1' : '' })}`)}>⬇ Reporte de movimientos (CSV)</button>
+          {ctx.puede('descargar_movimientos') && <button className="btn" disabled={!valid} onClick={() => download(`/export/movimientos.csv${qs({ desde, hasta, rankings: ranking === '*' ? [] : [ranking], solo: solo ? '1' : '' })}`)}>⬇ Reporte de movimientos (CSV)</button>}
           <button className="btn" onClick={() => window.print()}>🖨 Imprimir / PDF</button>
         </div>
       </div>

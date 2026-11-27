@@ -19,6 +19,7 @@ export default function Admin({ ctx }) {
         <Periodos ctx={ctx} />
         <Parametros ctx={ctx} />
       </div>
+      <Permisos ctx={ctx} />
       <Catalogos ctx={ctx} />
       <Bitacora />
     </>
@@ -214,5 +215,72 @@ function Bitacora() {
         ]} empty="Aún no hay operaciones registradas." />
       )}
     </div>
+  );
+}
+
+const PERFIL_COLS = [{ id: 'publico', label: 'Público' }, { id: 'analista', label: 'Analista' }];
+
+function Permisos({ ctx }) {
+  const { data, error, loading, reload } = useApi('/admin/permisos');
+  const [draft, setDraft] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [err, setErr] = useState(null);
+  if (error) return <ErrorBox error={error} />;
+  if (loading || !data) return <Loading />;
+  const asig = draft || data.asignaciones;
+  const cambiado = draft && JSON.stringify(draft) !== JSON.stringify(data.asignaciones);
+  const toggle = (clave, perfil) => {
+    const cur = asig[clave] || [];
+    setDraft({ ...asig, [clave]: cur.includes(perfil) ? cur.filter((p) => p !== perfil) : [...cur, perfil] });
+    setMsg(null);
+  };
+  const done = async (p, texto) => {
+    setErr(null);
+    try { await p; setDraft(null); setMsg(texto); reload(); await ctx.reloadMeta(); } catch (e) { setErr(e); }
+  };
+  const guardar = () => done(api('/admin/permisos', { method: 'PUT', body: { asignaciones: asig } }), 'Permisos guardados. Se aplican de inmediato a todas las sesiones.');
+  const restaurar = () => window.confirm('¿Restaurar los permisos por defecto?') && done(api('/admin/permisos/restaurar', { method: 'POST' }), 'Permisos restaurados a los valores por defecto.');
+  const grupos = [...new Set(data.catalogo.map((p) => p.grupo))];
+
+  return (
+    <div className="card">
+      <h2>Perfiles y permisos</h2>
+      <p className="sub">Defina qué puede hacer cada perfil. El Administrador siempre tiene todos los permisos y sus funciones de control (carga de períodos, parámetros, catálogos, permisos y bitácora) no se pueden delegar. El servidor aplica estos permisos en cada solicitud.</p>
+      <table>
+        <thead><tr><th>Permiso</th>{PERFIL_COLS.map((c) => <th key={c.id} className="num">{c.label}</th>)}<th className="num">Administrador</th></tr></thead>
+        <tbody>
+          {grupos.map((g) => (
+            <FragmentGrupo key={g} grupo={g} items={data.catalogo.filter((p) => p.grupo === g)} asig={asig} toggle={toggle} />
+          ))}
+          <tr><td className="muted">Cargar períodos, parámetros, catálogos, permisos y bitácora</td>{PERFIL_COLS.map((c) => <td key={c.id} className="num muted">—</td>)}<td className="num">✓</td></tr>
+        </tbody>
+      </table>
+      <div className="toolbar" style={{ marginTop: 12 }}>
+        <button className="btn primary" disabled={!cambiado} onClick={guardar}>Guardar permisos</button>
+        {cambiado && <button className="btn" onClick={() => setDraft(null)}>Descartar cambios</button>}
+        <button className="btn" onClick={restaurar}>Restaurar valores por defecto</button>
+      </div>
+      {msg && <div className="alert success" style={{ marginTop: 10 }}>{msg}</div>}
+      <ErrorBox error={err} />
+    </div>
+  );
+}
+
+function FragmentGrupo({ grupo, items, asig, toggle }) {
+  return (
+    <>
+      <tr><td colSpan={4} style={{ fontWeight: 600, background: 'var(--surface-2)' }}>{grupo}</td></tr>
+      {items.map((p) => (
+        <tr key={p.clave}>
+          <td className="wrap">{p.label}</td>
+          {PERFIL_COLS.map((c) => (
+            <td key={c.id} className="num">
+              <input type="checkbox" aria-label={`${p.label} – ${c.label}`} checked={(asig[p.clave] || []).includes(c.id)} onChange={() => toggle(p.clave, c.id)} />
+            </td>
+          ))}
+          <td className="num">✓</td>
+        </tr>
+      ))}
+    </>
   );
 }

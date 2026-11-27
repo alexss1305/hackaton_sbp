@@ -10,6 +10,7 @@ import Comparar from './pages/Comparar.jsx';
 import Calidad from './pages/Calidad.jsx';
 import Reportes from './pages/Reportes.jsx';
 import Admin from './pages/Admin.jsx';
+import Asistente from './pages/Asistente.jsx';
 
 const NIVEL = { publico: 1, analista: 2, administrador: 3 };
 
@@ -20,7 +21,8 @@ const PAGES = [
   { id: 'explorar', label: 'Filtros y subactividades', min: 'publico', group: 'Consulta', C: Explorar },
   { id: 'calidad', label: 'Calidad de datos', min: 'publico', group: 'Consulta', C: Calidad },
   { id: 'reportes', label: 'Reportes y descargas', min: 'publico', group: 'Consulta', C: Reportes },
-  { id: 'comparar', label: 'Comparar períodos', min: 'analista', group: 'Análisis', C: Comparar },
+  { id: 'comparar', label: 'Comparar períodos', min: 'publico', permiso: 'comparar_periodos', group: 'Análisis', C: Comparar },
+  { id: 'asistente', label: 'Asistente IA', min: 'publico', permiso: 'asistente_ia', group: 'Análisis', C: Asistente },
   { id: 'admin', label: 'Administración', min: 'administrador', group: 'Control', C: Admin },
 ];
 
@@ -58,9 +60,10 @@ export default function App() {
   if (checking) return null;
   if (!user) return <Login onLogin={(u) => { setUser(u); setPage('panel'); }} />;
 
-  const visible = PAGES.filter((p) => NIVEL[user.perfil] >= NIVEL[p.min]);
+  const puede = (k) => Boolean(meta?.permisos?.includes(k));
+  const visible = PAGES.filter((p) => NIVEL[user.perfil] >= NIVEL[p.min] && (!p.permiso || puede(p.permiso)));
   const current = visible.find((p) => p.id === page) || visible[0];
-  const ctx = { meta, fecha, setFecha, perfil: user.perfil, nivel: NIVEL[user.perfil], reloadMeta: loadMeta, goTo: setPage };
+  const ctx = { meta, fecha, setFecha, perfil: user.perfil, perfilNombre: user.nombre, nivel: NIVEL[user.perfil], puede, reloadMeta: loadMeta, goTo: setPage };
   const Page = current.C;
 
   return (

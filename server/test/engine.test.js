@@ -18,6 +18,7 @@ function row(over) {
   Object.assign(o, {
     Fecha: '20260731', Codigo_Banco: '101', Destino: 'L', Facilidad_Crediticia: '01',
     Tipo_Actividad: 'L.68.681.6810.00000', Saldo: '100.00', Dias_Mora: '0', Tasa_Interes: '5',
+    Fecha_Inicial_Prestamo: '20250101', Fecha_Vencimiento: '20300101', Fecha_Proximo_Pago_Capital: '20260815', Fecha_Proximo_Pago_Interes: '20260815',
   }, over);
   return o;
 }
@@ -157,4 +158,16 @@ test('datos reales: los 3 períodos cuadran y ningún préstamo se repite', () =
     }
   }
   assert.equal(comparisons.filter((c) => c.tipo === 'consecutivo').length, periods.length - 1);
+});
+
+test('tipos de datos según el diccionario: se reportan como alerta, sin excluir filas', () => {
+  const p = period([
+    row({ Numero_Prestamo: '1', Tasa_Interes: 'cinco', Dias_Mora: '2.5' }),
+    row({ Numero_Prestamo: '2', Fecha_Refinanciamiento: '2026-01-01', Codigo_Region: '' }),
+    row({ Numero_Prestamo: '3' }),
+  ]);
+  assert.equal(p.quality.Universo_Local_Valido, 3); // nadie se excluye por tipo
+  const tipos = p.alerts.filter((a) => a.Tipo === 'Tipo de dato inválido').map((a) => a.Mensaje.split(' ')[0]).sort();
+  assert.deepEqual(tipos, ['Codigo_Region', 'Dias_Mora', 'Fecha_Refinanciamiento', 'Tasa_Interes']);
+  assert.equal(p.quality.Indep_E1, 0);
 });

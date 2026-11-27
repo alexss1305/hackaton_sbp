@@ -37,7 +37,7 @@ export default function Explorar({ ctx }) {
           <h1>Filtros y desglose por subactividad</h1>
           <p>Combine período, ranking, bancos y subactividades. En CONSUMO, las operaciones de crédito personal con facilidad 07 (tarjeta, tabla SB21) se muestran en Tarjeta.</p>
         </div>
-        <button className="btn" onClick={() => download(`/export/subactividades.csv${qs({ fechas: [fecha], ...filters })}`)}>⬇ Descargar selección (CSV)</button>
+        {ctx.puede('descargar_subactividades') && <button className="btn" onClick={() => download(`/export/subactividades.csv${qs({ fechas: [fecha], ...filters })}`)}>⬇ Descargar selección (CSV)</button>}
       </div>
 
       <div className="card toolbar">

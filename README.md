@@ -20,16 +20,21 @@ Otros comandos:
 |---|---|
 | `npm test` | Pruebas del motor de cálculo y de la API (node:test) |
 | `npm run calc` | Procesa `data/periodos/*.csv` por línea de comandos y escribe los entregables en `output/` |
+| `npm run demo:preparar` / `demo:restaurar` | Deja cargados julio y agosto (septiembre pasa a `data/demo/`) para demostrar en vivo la carga de un nuevo período, y luego lo restaura |
 
 ### Perfiles
 | Perfil | Acceso | Opciones |
 |---|---|---|
-| Público | sin contraseña | Panel, rankings, filtros y subactividades, calidad de datos, descargas (rankings, subactividades, calidad) |
-| Analista | `ANALISTA_PASSWORD` en `.env` | + comparar períodos y entidades, movimientos con explicación, reportes personalizados, filas excluidas y alertas |
-| Administrador | `ADMIN_PASSWORD` en `.env` | + cargar/actualizar/retirar períodos, parámetros de movimiento significativo, catálogos, bitácora de operaciones |
+| Público | sin contraseña | Panel, rankings, filtros y subactividades, calidad de datos, reportes con PDF, descargas (rankings, subactividades, calidad) |
+| Analista | `ANALISTA_PASSWORD` en `.env` | + comparar períodos y entidades, movimientos con explicación, asistente de IA, descargas de movimientos, filas excluidas y alertas |
+| Administrador | `ADMIN_PASSWORD` en `.env` | Todo lo anterior + cargar/actualizar/retirar períodos, parámetros de movimiento significativo, catálogos, **perfiles y permisos**, bitácora de operaciones |
 
-El control se aplica **en el servidor** (middleware por perfil); el frontend solo oculta lo que el perfil no puede usar.
+Los permisos de Público y Analista son **editables** por el Administrador (*Administración → Perfiles y permisos*, guardados en `data/permisos.json`); la tabla anterior muestra los valores por defecto. Las funciones de Administrador no se pueden delegar.
+El control se aplica **en el servidor** (middleware `permiso(...)` en cada ruta); el frontend solo oculta lo que el perfil no puede usar.
 `.env` no se versiona (`.gitignore`); si no existe, el servidor genera contraseñas temporales y las muestra en consola.
+
+### Asistente de IA (opcional)
+Agregue `ANTHROPIC_API_KEY=...` a `.env` y reinicie el servidor para habilitar *Asistente IA*. El asistente (`server/src/api/asistente.js`, modelo `claude-opus-5-5`) recibe **solo los resultados ya calculados** del período (rankings, subactividades, calidad, movimientos, indicadores) y tiene instrucciones de no inventar ni recalcular cifras: **explica, no calcula** (Sección 9 del reto). Usa el respaldo automático del servicio ante rechazos (`fallbacks: "default"`). Sin clave, la pantalla indica cómo habilitarlo y el resto de la plataforma funciona igual.
 
 ## Arquitectura
 ```
@@ -38,14 +43,14 @@ server/  Node.js + Express
   src/engine/   motor de cálculo puro, sin HTTP (determinista y probado)
     csv.js        lector CSV que conserva todo como texto (07, 001, 010 no pierden ceros)
     money.js      aritmética exacta en centavos (BigInt) y redondeo half-up
-    validate.js   esquema de 61 columnas vs diccionario, formato de Fecha/Saldo, integridad referencial
+    validate.js   esquema de 61 columnas vs diccionario, tipos de datos por campo, integridad referencial
     cascade.js    exclusiones en cascada E1–E4
     classify.js   clasificación por catálogo CINU + regla SB21 de CONSUMO
     aggregate.js  subactividad → actividad → cartera total, ponderación, posición, reconciliaciones, indicadores
     compare.js    movimientos entre períodos, regla configurable y explicación automática
     pipeline.js   orquestación por período; exports.js genera los CSV oficiales
   src/store/    persistencia en disco (data/), recálculo completo ante cada cambio, bitácora
-  src/api/      rutas REST y control de acceso por perfil
+  src/api/      rutas REST, perfiles y permisos editables (permisos.js), asistente de IA (asistente.js)
 data/catalogos  Bancos, CINU/SB109, SB21, diccionario AT03
 data/periodos   archivos AT03 activos (uno por período); data/historial guarda los reemplazados
 ```
@@ -53,14 +58,14 @@ No se usa base de datos: ~83 000 filas se procesan en memoria en pocos segundos,
 recalculan siempre desde los archivos fuente, por lo que son reproducibles.
 
 ## Reglas implementadas (INDICACIONES_RETO_RANKING_CREDITO.md)
-1. **Ingesta:** los CSV se leen como texto; solo `Saldo` se convierte a centavos enteros. El período sale del campo `Fecha`, no del nombre del archivo. Un archivo con columnas distintas al diccionario (nombre u orden), filas con número de campos incorrecto, `Fecha` no AAAAMMDD o `Saldo` no numérico se **rechaza** con un mensaje que indica la línea.
+1. **Ingesta:** los CSV se leen como texto; solo `Saldo` se convierte a centavos enteros. El período sale del campo `Fecha`, no del nombre del archivo. Un archivo con columnas distintas al diccionario (nombre u orden), filas con número de campos incorrecto, `Fecha` no AAAAMMDD o `Saldo` no numérico se **rechaza** con un mensaje que indica la línea. El resto de los campos se valida contra el **tipo del diccionario** (fecha, decimal, entero, código o texto, con `NA` donde aplica) y los valores inválidos se reportan como **alertas** agrupadas por campo, sin excluir filas (solo E1–E4 excluyen). Si una carga reemplazaría un archivo que también trae otros períodos, se rechaza para no perderlos.
 2. **Integridad referencial:** `Codigo_Banco` y `Facilidad_Crediticia` no catalogados generan **alertas** (no excluyen).
 3. **Cascada por período** (cada fila cuenta solo en el primer filtro que incumple): E1 duplicado de `Numero_Prestamo` (se conserva la primera ocurrencia del archivo) → E2 `Destino <> 'L'` (exacto) → E3 `Saldo <= 0` → E4 `Tipo_Actividad` fuera del catálogo CINU. Se verifica `leídas = E1+E2+E3+E4+universo`. El conteo independiente por regla se muestra aparte.
 4. **Clasificación:** `Tipo_Actividad = Codigo_CINU` (nunca `Codigo_SB08_Referencia`). **CONSUMO/SB21:** CINU de crédito personal con facilidad `07` → `Tarjeta`. CINU de tarjeta sin `07` o de automóvil sin `03` → alerta, se mantiene la subactividad del catálogo.
 5. **Agregación exacta:** saldo por subactividad → por actividad; `Total_Cartera_Local_Valida` sobre **todo** el universo del banco (6 macroactividades); `Ponderacion_Pct` redondeada a 4 decimales con redondeo aritmético calculado en enteros.
 6. **Ranking:** 12 bancos siempre (saldo 0.00 si no tiene), orden por saldo descendente, desempate por `Codigo_Banco` ascendente.
 7. **Reconciliaciones** R1, R2 y R3 calculadas por período y visibles en *Calidad de datos*.
-8. **Comparación:** `Cambio_Posicion = Pos_anterior − Pos_actual`, `Var_Saldo`, `Var_Saldo_Pct`; consecutivos y primero→último, más cualquier par en la pantalla *Comparar*.
+8. **Comparación:** `Cambio_Posicion = Pos_anterior − Pos_actual`, `Var_Saldo`, `Var_Saldo_Pct`; consecutivos y primero→último, más cualquier par en la pantalla *Comparar*. Si el saldo anterior es 0, `Var_Saldo_Pct` queda vacío (la división no está definida).
 
 ### Movimiento significativo (configurable)
 Un movimiento es significativo si cumple **cualquiera** de las condiciones activas. Valores por defecto
@@ -81,12 +86,19 @@ subactividad con mayor variación de saldo.
 | 5 | Movimientos de posición | Comparar períodos / Reportes | `output/movimientos.csv` |
 | 7 | Nuevo período sin editar código | Administración → cargar archivo | prueba `server/test/api.test.js` |
 
-**Demostración del entregable 7:** en Administración, retire septiembre (queda en `data/historial/`), y vuelva a
-cargar `AT03_sintetico_202609.csv`: la app valida el archivo, muestra una vista previa, recalcula y lista los
-movimientos significativos frente a agosto.
+**Demostración del entregable 7:**
+1. Con el servidor detenido: `npm run demo:preparar` (quedan julio y agosto; septiembre pasa a `data/demo/`).
+2. `npm start`, entrar como Administrador → *Administración* → cargar `data/demo/AT03_sintetico_202609.csv`.
+3. La app valida el archivo, muestra una vista previa, recalcula y lista los movimientos significativos frente a agosto, con su explicación.
+4. Al terminar: `npm run demo:restaurar`.
+
+La matriz completa requisito → código → prueba está en [`docs/CUMPLIMIENTO.md`](docs/CUMPLIMIENTO.md).
+
+### Reportes
+*Reportes* arma un documento con plantillas (ejecutivo, rankings detallados, comparación, calidad), filtros, bancos destacados y secciones a elegir, con vista previa y descarga en PDF (A4). Las reglas de diseño para ampliarlo están en la skill `.claude/skills/reportes-visuales/SKILL.md`.
 
 ## Pruebas y verificación
-- `npm test`: 14 pruebas — ceros a la izquierda, centavos exactos y redondeo, cascada (incluido el caso de filas que incumplen varias reglas), primera ocurrencia en E1, reclasificación SB21 sin alterar el total de CONSUMO, 12 bancos y desempate, denominador común, rechazo de archivos inválidos, comparación y regla configurable, datos reales cuadrados, y la API de punta a punta (permisos por perfil, carga de septiembre, actualización de un período existente, cambio de parámetros).
+- `npm test`: 18 pruebas — tipos de datos por diccionario (alerta sin exclusión), permisos editables, carga que perdería períodos, asistente sin clave, ceros a la izquierda, centavos exactos y redondeo, cascada (incluido el caso de filas que incumplen varias reglas), primera ocurrencia en E1, reclasificación SB21 sin alterar el total de CONSUMO, 12 bancos y desempate, denominador común, rechazo de archivos inválidos, comparación y regla configurable, datos reales cuadrados, y la API de punta a punta (permisos por perfil, carga de septiembre, actualización de un período existente, cambio de parámetros).
 - Contraste independiente: los rankings y subactividades de los 3 períodos se recalcularon con un script Python con `decimal` y coincidieron en las 216 filas de ranking y 792 de subactividad (0 diferencias).
 
 ### Resultados de calidad obtenidos

@@ -8,6 +8,7 @@ import path from 'node:path';
 import { loadCatalogs, parseCatalog, buildCatalogs, CATALOG_FILES } from '../engine/catalogs.js';
 import { buildDataset, buildComparisons, readAt03 } from '../engine/pipeline.js';
 import { compareRankings, DEFAULT_PARAMS } from '../engine/compare.js';
+import { normalizar, defaultAsignaciones, tienePermiso, permisosDe, PERMISOS } from '../api/permisos.js';
 
 export class Store {
   constructor(dataDir) {
@@ -19,9 +20,11 @@ export class Store {
     };
     this.paramsFile = path.join(dataDir, 'params.json');
     this.logFile = path.join(dataDir, 'bitacora.json');
+    this.permisosFile = path.join(dataDir, 'permisos.json');
     for (const d of Object.values(this.dir)) fs.mkdirSync(d, { recursive: true });
     this.params = this.#readJson(this.paramsFile, DEFAULT_PARAMS);
     this.log = this.#readJson(this.logFile, []);
+    this.permisos = normalizar(this.#readJson(this.permisosFile, {}));
     this.catalogs = loadCatalogs(this.dir.catalogos);
     this.recalculate();
   }
@@ -65,17 +68,30 @@ export class Store {
    * Con dryRun=true solo valida y describe lo que haría.
    */
   uploadPeriod(originalName, text, perfil, { dryRun = false } = {}) {
-    const name = path.basename(originalName || 'periodo.csv').replace(/[^\w.\-]/g, '_').replace(/(\.csv)?$/i, '.csv');
+    let name = path.basename(originalName || 'periodo.csv').replace(/[^\w.\-]/g, '_').replace(/(\.csv)?$/i, '.csv');
     const r = readAt03(text, name, this.catalogs.schema);
     if (!r.ok) {
       if (!dryRun) this.addLog(perfil, 'Carga rechazada', `${name}: ${r.errors.join(' ')}`);
       const e = new Error('El archivo no cumple el formato AT03 del diccionario.');
       e.status = 400; e.details = r.errors; throw e;
     }
-    const replaced = this.#files().filter((f) => {
-      const other = readAt03(f.text, f.name, this.catalogs.schema);
-      return other.ok && other.fechas.some((x) => r.fechas.includes(x));
-    }).map((f) => f.name);
+    const overlapping = this.#files().map((f) => ({ name: f.name, other: readAt03(f.text, f.name, this.catalogs.schema) }))
+      .filter(({ other }) => other.ok && other.fechas.some((x) => r.fechas.includes(x)));
+    // Un archivo a reemplazar no puede llevarse períodos que el nuevo no trae (se perderían sin aviso)
+    const perderia = overlapping.flatMap(({ name: n, other }) => other.fechas.filter((x) => !r.fechas.includes(x)).map((x) => `${x} (${n})`));
+    if (perderia.length) {
+      const e = new Error('La carga retiraría períodos que el archivo nuevo no contiene.');
+      e.status = 400;
+      e.details = [`El archivo existente también trae los períodos ${perderia.join(', ')}. Cargue un archivo que incluya esos períodos o retírelos primero.`];
+      throw e;
+    }
+    const replaced = overlapping.map((f) => f.name);
+    // Si ya existe un archivo con el mismo nombre que NO se reemplaza, se guarda con otro nombre
+    let finalName = name;
+    for (let i = 2; fs.existsSync(path.join(this.dir.periodos, finalName)) && !replaced.includes(finalName); i++) {
+      finalName = name.replace(/\.csv$/i, `_${i}.csv`);
+    }
+    name = finalName;
     const summary = { archivo: name, filas: r.totalRows, fechas: r.fechas, reemplaza: replaced, accion: replaced.length ? 'actualizar' : 'nuevo' };
     if (dryRun) return summary;
 
@@ -144,5 +160,23 @@ export class Store {
     this.catalogs = loadCatalogs(this.dir.catalogos);
     this.recalculate();
     this.addLog(perfil, 'Actualización de catálogo', `${spec.file} (${parsed.length} registros). Recalculado en ${this.lastDurationMs} ms`);
+  }
+
+  // ---------- Permisos por perfil ----------
+  tiene(perfil, clave) { return tienePermiso(this.permisos, perfil, clave); }
+  permisosDe(perfil) { return permisosDe(this.permisos, perfil); }
+  permisosConfig() { return { catalogo: PERMISOS, asignaciones: this.permisos }; }
+
+  updatePermisos(asignaciones, perfil, { restaurar = false } = {}) {
+    if (!restaurar && (typeof asignaciones !== 'object' || asignaciones === null || Array.isArray(asignaciones))) {
+      const e = new Error('Formato de permisos inválido.'); e.status = 400; throw e;
+    }
+    const antes = this.permisos;
+    this.permisos = restaurar ? defaultAsignaciones() : normalizar(asignaciones);
+    fs.writeFileSync(this.permisosFile, JSON.stringify(this.permisos, null, 2));
+    const cambios = PERMISOS.filter((p) => antes[p.clave].join() !== this.permisos[p.clave].join())
+      .map((p) => `${p.label}: ${this.permisos[p.clave].join(', ') || 'solo Administrador'}`);
+    this.addLog(perfil, restaurar ? 'Permisos restaurados' : 'Cambio de permisos', cambios.join(' · ') || 'Sin cambios');
+    return this.permisosConfig();
   }
 }
