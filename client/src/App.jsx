@@ -12,6 +12,10 @@ import Reportes from './pages/Reportes.jsx';
 import Admin from './pages/Admin.jsx';
 import Asistente from './pages/Asistente.jsx';
 import { Icon, Monogram } from './components/brand.jsx';
+import PeriodPicker from './components/PeriodPicker.jsx';
+
+const MENU_KEY = 'sbp-menu-colapsado';
+const esMovil = () => window.matchMedia('(max-width: 960px)').matches;
 
 const NIVEL = { publico: 1, analista: 2, administrador: 3 };
 
@@ -34,6 +38,20 @@ export default function App() {
   const [metaError, setMetaError] = useState(null);
   const [fecha, setFecha] = useState('');
   const [page, setPage] = useState('panel');
+  // Escritorio: menú expandido o reducido a íconos (se recuerda). Móvil: panel deslizable que se abre con ☰
+  const [colapsado, setColapsado] = useState(() => localStorage.getItem(MENU_KEY) === '1');
+  const [drawer, setDrawer] = useState(false);
+  const toggleMenu = () => {
+    if (esMovil()) { setDrawer((d) => !d); return; }
+    setColapsado((c) => { localStorage.setItem(MENU_KEY, c ? '0' : '1'); return !c; });
+  };
+  const irA = (id) => { setPage(id); setDrawer(false); };
+  useEffect(() => {
+    if (!drawer) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setDrawer(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [drawer]);
 
   const loadMeta = useCallback(async () => {
     try {
@@ -64,7 +82,7 @@ export default function App() {
   const puede = (k) => Boolean(meta?.permisos?.includes(k));
   const visible = PAGES.filter((p) => NIVEL[user.perfil] >= NIVEL[p.min] && (!p.permiso || puede(p.permiso)));
   const current = visible.find((p) => p.id === page) || visible[0];
-  const ctx = { meta, fecha, setFecha, perfil: user.perfil, perfilNombre: user.nombre, nivel: NIVEL[user.perfil], puede, reloadMeta: loadMeta, goTo: setPage };
+  const ctx = { meta, fecha, setFecha, perfil: user.perfil, perfilNombre: user.nombre, nivel: NIVEL[user.perfil], puede, reloadMeta: loadMeta, goTo: irA };
   const Page = current.C;
 
   const iniciales = user.nombre.slice(0, 2).toUpperCase();
@@ -72,14 +90,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="topnav">
+        <button type="button" className="menu-toggle" onClick={toggleMenu} aria-label={colapsado || !drawer ? 'Mostrar u ocultar el menú' : 'Cerrar el menú'} aria-expanded={!colapsado || drawer} aria-controls="menu-lateral">
+          <Icon name="menu" />
+        </button>
         <Monogram title="Ranking de Créditos" subtitle="Superintendencia de Bancos de Panamá" />
         {meta && meta.periodos.length > 0 && (
-          <label className="period-select">
-            <Icon name="calendar" />
-            <select value={fecha} onChange={(e) => setFecha(e.target.value)} aria-label="Período">
-              {meta.periodos.map((p) => <option key={p.fecha} value={p.fecha}>{fmtPeriodo(p.fecha)}</option>)}
-            </select>
-          </label>
+          <PeriodPicker periodos={meta.periodos} value={fecha} onChange={setFecha} />
         )}
         <div className="user-chip">
           <span className="avatar">{iniciales}</span>
@@ -96,8 +112,12 @@ export default function App() {
         </div>
       </section>
 
-      <div className="body">
-        <nav className="side" aria-label="Módulos">
+      <div className={`body ${colapsado ? 'menu-colapsado' : ''}`}>
+        {drawer && <div className="drawer-backdrop" onClick={() => setDrawer(false)} aria-hidden="true" />}
+        <nav id="menu-lateral" className={`side ${drawer ? 'drawer-open' : ''}`} aria-label="Módulos">
+          <button type="button" className="side-collapse" onClick={toggleMenu} title={colapsado ? 'Expandir menú' : 'Reducir menú'}>
+            <Icon name={drawer ? 'close' : 'sidebar'} /><span className="side-text">{drawer ? 'Cerrar menú' : 'Reducir menú'}</span>
+          </button>
           {['Consulta', 'Análisis', 'Control'].map((g) => {
             const items = visible.filter((p) => p.group === g);
             if (!items.length) return null;
@@ -105,8 +125,8 @@ export default function App() {
               <div key={g} style={{ display: 'contents' }}>
                 <div className="group">{g}</div>
                 {items.map((p) => (
-                  <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => setPage(p.id)} aria-current={p.id === current.id ? 'page' : undefined}>
-                    <Icon name={p.icon} />{p.label}
+                  <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => irA(p.id)} aria-current={p.id === current.id ? 'page' : undefined} title={colapsado ? p.label : undefined}>
+                    <Icon name={p.icon} /><span className="side-text">{p.label}</span>
                   </button>
                 ))}
               </div>
