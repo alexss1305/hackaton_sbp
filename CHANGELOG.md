@@ -9,6 +9,20 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
+## (pendiente) — Diseño general: login, navegación, fuente de datos y movimiento
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Cambios**
+- **Login:** se quitó el recuadro flotante que aparecía al pasar el mouse; la descripción se ve siempre y las opciones tienen estados de hover (se elevan, ícono destacado, flecha que avanza), foco con teclado (contorno dorado) y presionado.
+- **Ruta de navegación clicable:** "Inicio" lleva al Panel y el grupo a su primera pantalla; la pantalla actual se marca con `aria-current`.
+- **Fuente y período:** salen de los chips del banner a un botón ⓘ "Fuente: AT03" junto al calendario (`client/src/components/AcercaDatos.jsx`) con fuente, período, archivo, filas, períodos y aviso de datos sintéticos (lámina 9).
+- **Movimiento** (`client/src/components/efectos.jsx`, respeta "reducir movimiento"): esqueletos con brillo mientras carga, transición entre pantallas, entrada escalonada de KPI y tarjetas, cifras de los KPI que cuentan hasta su valor, líneas doradas del banner en movimiento suave.
+- **Avisos flotantes** al iniciar una descarga; estados vacíos de tablas centrados.
+
+**Verificación:** `npm test` 56 de 56; compilación sin errores; recorrido en navegador (hover del login, ruta clicable, ⓘ de datos, KPI con su valor final).
+
+---
+
 ## (pendiente) — Administración: usuarios y roles, carga con confirmación, publicaciones y registros
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 

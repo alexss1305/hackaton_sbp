@@ -16,6 +16,8 @@ import Registros from './pages/Registros.jsx';
 import Publicaciones from './pages/Publicaciones.jsx';
 import { Icon, Monogram } from './components/brand.jsx';
 import PeriodPicker from './components/PeriodPicker.jsx';
+import AcercaDatos from './components/AcercaDatos.jsx';
+import { Avisos, Esqueleto } from './components/efectos.jsx';
 
 const MENU_KEY = 'sbp-menu-colapsado';
 const esMovil = () => window.matchMedia('(max-width: 960px)').matches;
@@ -100,7 +102,10 @@ export default function App() {
         </button>
         <Monogram title="Ranking de Créditos" subtitle="Superintendencia de Bancos de Panamá" />
         {meta && meta.periodos.length > 0 && (
-          <PeriodPicker periodos={meta.periodos} value={fecha} onChange={setFecha} />
+          <>
+            <PeriodPicker periodos={meta.periodos} value={fecha} onChange={setFecha} />
+            <AcercaDatos meta={meta} fecha={fecha} />
+          </>
         )}
         <div className="user-chip">
           <span className="avatar">{iniciales}</span>
@@ -109,12 +114,14 @@ export default function App() {
       </header>
 
       <section className="banner">
-        <div className="crumb">Inicio / {current.group} / {current.label}</div>
+        <nav className="crumb" aria-label="Ruta">
+          <button type="button" onClick={() => irA('panel')}>Inicio</button>
+          <span aria-hidden="true">/</span>
+          <button type="button" onClick={() => irA(visible.find((p) => p.group === current.group)?.id || 'panel')}>{current.group}</button>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{current.label}</span>
+        </nav>
         <h1>Ranking de Créditos por Actividad Económica</h1>
-        <div className="banner-meta">
-          {fecha && <span className="chip-dark"><Icon name="calendar" />Corte {fmtCorte(fecha)}</span>}
-          <span className="chip-dark"><Icon name="table" />Fuente: archivos AT03</span>
-        </div>
       </section>
 
       <div className={`body ${colapsado ? 'menu-colapsado' : ''}`}>
@@ -140,11 +147,11 @@ export default function App() {
         </nav>
         <main>
           <ErrorBox error={metaError} />
-          {!meta && !metaError && <Loading />}
+          {!meta && !metaError && <Esqueleto />}
           {meta && meta.periodos.length === 0 && current.id !== 'admin' && (
             <div className="alert info">No hay períodos cargados. {user.perfil === 'administrador' ? 'Cargue un archivo AT03 en Administración.' : 'Un Administrador debe cargar un archivo AT03.'}</div>
           )}
-          {meta && (meta.periodos.length > 0 || current.id === 'admin') && <Page key={current.id} ctx={ctx} />}
+          {meta && (meta.periodos.length > 0 || current.id === 'admin') && <div className="page-anim" key={current.id}><Page ctx={ctx} /></div>}
         </main>
       </div>
       <footer>
@@ -157,6 +164,7 @@ export default function App() {
       {puede('asistente_ia') && meta && (
         <ChatFlotante pantalla={{ id: current.id, label: current.label }} fecha={fecha} perfilNombre={user.nombre} iaConfigurada={Boolean(meta.asistenteDisponible)} />
       )}
+      <Avisos />
     </div>
   );
 }
