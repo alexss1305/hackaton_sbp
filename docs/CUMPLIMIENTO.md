@@ -7,6 +7,8 @@ prueba y qué mostrar al jurado. Rutas relativas a la raíz del repositorio.
 | Requisito | Implementación | Prueba / evidencia |
 |---|---|---|
 | UTF-8, coma, CRLF, encabezado; BOM tolerado | `server/src/engine/csv.js` (`parseCsv`) | `engine.test.js` › "CSV conserva ceros…" |
+| Fecha AAAAMMDD real; exportaciones UTF-8 sin BOM, CRLF y ceros intactos | `validate.js` (`esFechaValida`), `routes.js` (`sendCsv`) | `auditoria.test.js` › "2.1: Fecha…", "10: exportaciones…" |
+| 12 bancos por ranking aunque llegue un banco no catalogado (alerta + R3) | `aggregate.js` (`bankList`) | `auditoria.test.js` › "4.C/7: banco no catalogado…" |
 | Códigos como texto, ceros a la izquierda (`07`, `001`, `010`) | Todo se lee como texto; solo `Saldo` se convierte | idem; `output/rankings.csv` |
 | `NA` = no aplica | `validate.js` › `typeAlerts` admite `NA` donde el diccionario lo permite | `engine.test.js` › "tipos de datos…" |
 | Comparaciones exactas (`Destino` = `L`) | `cascade.js` (`r.Destino !== 'L'`) | `engine.test.js` › cascada (`'l'` minúscula se excluye) |

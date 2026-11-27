@@ -7,11 +7,13 @@ const cmpCodigo = (a, b) => {
   return a < b ? -1 : a > b ? 1 : 0;
 };
 
-/** Lista de bancos a incluir en cada ranking: los 12 del catálogo + cualquier código no catalogado presente. */
-function bankList(rows, catalogs) {
-  const codes = new Set(catalogs.bancos.map((b) => b.codigo));
-  for (const r of rows) codes.add(r.Codigo_Banco);
-  return [...codes].sort(cmpCodigo).map((c) => ({ codigo: c, nombre: catalogs.bancoMap.get(c) ?? `(No catalogado ${c})` }));
+/**
+ * Bancos de cada ranking: exactamente los del catálogo Bancos_ficticios (12 en el reto), aunque no tengan saldo.
+ * Un Codigo_Banco no catalogado NO entra al ranking: se reporta como alerta (validate.js) y su saldo queda
+ * identificado aparte en la reconciliación 3, sin excluir la fila del universo local válido.
+ */
+function bankList(catalogs) {
+  return [...catalogs.bancos].sort((a, b) => cmpCodigo(a.codigo, b.codigo)).map((b) => ({ codigo: b.codigo, nombre: b.nombre }));
 }
 
 /**
@@ -19,7 +21,7 @@ function bankList(rows, catalogs) {
  * Todos los montos se suman en centavos BigInt.
  */
 export function aggregate(fecha, rows, catalogs) {
-  const banks = bankList(rows, catalogs);
+  const banks = bankList(catalogs);
   const { macros, subsByMacro } = catalogs;
 
   // sub[macro][sub][banco] = { cents, ops } ; total[banco] = cents
@@ -33,13 +35,20 @@ export function aggregate(fecha, rows, catalogs) {
   }
   const total = Object.fromEntries(banks.map((b) => [b.codigo, 0n]));
   let universeTotal = 0n;
+  const noCatalogados = new Map(); // Codigo_Banco -> { cents, ops }
 
   for (const r of rows) {
+    universeTotal += r._cents;
+    if (!Object.hasOwn(total, r.Codigo_Banco)) {
+      const nc = noCatalogados.get(r.Codigo_Banco) ?? { cents: 0n, ops: 0 };
+      nc.cents += r._cents; nc.ops += 1;
+      noCatalogados.set(r.Codigo_Banco, nc);
+      continue;
+    }
     const cell = sub[r._macro][r._sub][r.Codigo_Banco];
     cell.cents += r._cents;
     cell.ops += 1;
     total[r.Codigo_Banco] += r._cents; // denominador: TODO el universo del banco (6 macros)
-    universeTotal += r._cents;
   }
 
   const rankings = {};
@@ -79,6 +88,7 @@ export function aggregate(fecha, rows, catalogs) {
   }
 
   const bancosTotal = Object.values(total).reduce((a, c) => a + c, 0n);
+  const noCatTotal = [...noCatalogados.values()].reduce((a, x) => a + x.cents, 0n);
   const reconciliaciones = {
     r1: { descripcion: 'Suma de Saldo_Subactividad = Saldo_Actividad_Banco (por banco, ranking)', ok: recon1.every((x) => x.Cuadra), detalle: recon1 },
     r2: {
@@ -86,7 +96,15 @@ export function aggregate(fecha, rows, catalogs) {
       ok: banks.every((b) => recon2[b.codigo] === total[b.codigo]),
       detalle: banks.map((b) => ({ Fecha: fecha, Codigo_Banco: b.codigo, Suma_Actividades: formatCents(recon2[b.codigo]), Total_Cartera: formatCents(total[b.codigo]), Cuadra: recon2[b.codigo] === total[b.codigo] })),
     },
-    r3: { descripcion: 'Suma de Total_Cartera de los bancos = Saldo del universo local válido', ok: bancosTotal === universeTotal, sumaBancos: formatCents(bancosTotal), universo: formatCents(universeTotal) },
+    r3: {
+      descripcion: 'Suma de Total_Cartera de los bancos = Saldo del universo local válido',
+      ok: bancosTotal === universeTotal,
+      sumaBancos: formatCents(bancosTotal),
+      universo: formatCents(universeTotal),
+      // Solo distinto de 0.00 si hay Codigo_Banco fuera del catálogo: explica la diferencia de R3
+      saldoBancosNoCatalogados: formatCents(noCatTotal),
+      bancosNoCatalogados: [...noCatalogados.entries()].map(([codigo, x]) => ({ Codigo_Banco: codigo, Saldo: formatCents(x.cents), Operaciones: x.ops })),
+    },
   };
 
   return { banks, rankings, subactividades, totals: total, universeTotal, reconciliaciones, indicadores: indicators(fecha, rows, banks, rankings, macros) };
@@ -100,6 +118,7 @@ function indicators(fecha, rows, banks, rankings, macros) {
   }]));
   for (const r of rows) {
     const p = per[r.Codigo_Banco];
+    if (!p) continue; // banco no catalogado (ya reportado como alerta)
     p.cartera += r._cents; p.ops++;
     if (Number(r.Dias_Mora) > 0) p.moroso += r._cents;
     for (const c of MONTO_VENCIDO_COLS) p.vencido += toCents(r[c]) ?? 0n;

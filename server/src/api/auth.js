@@ -14,6 +14,9 @@ export const PERFILES = {
   administrador: { nombre: 'Administrador', nivel: 3 },
 };
 
+/** true solo para 'publico' | 'analista' | 'administrador' (evita claves heredadas como 'constructor'). */
+export const esPerfil = (p) => typeof p === 'string' && Object.hasOwn(PERFILES, p);
+
 const sessions = new Map(); // token -> { perfil, creado }
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -47,16 +50,19 @@ const safeEqual = (a, b) => {
 };
 
 export function login(creds, perfil, password, usuario) {
-  if (!PERFILES[perfil]) return null;
+  if (!esPerfil(perfil)) return null;
   if (perfil !== 'publico') {
     const c = credencial(creds, perfil);
+    if (!c || typeof c.password !== 'string' || !c.password) return null; // sin contraseña configurada no hay acceso
     // Se comparan ambos valores siempre, para no revelar cuál de los dos es incorrecto
     const okUser = safeEqual(String(usuario ?? '').trim().toLowerCase(), String(c?.usuario ?? '').toLowerCase());
     const okPass = safeEqual(password ?? '', c?.password ?? '');
     if (!c || !okUser || !okPass) return null;
   }
   const token = crypto.randomBytes(24).toString('base64url');
-  sessions.set(token, { perfil, creado: Date.now() });
+  const ahora = Date.now();
+  for (const [t, s] of sessions) if (ahora - s.creado >= SESSION_TTL_MS) sessions.delete(t); // limpia sesiones vencidas
+  sessions.set(token, { perfil, creado: ahora });
   return token;
 }
 
@@ -66,12 +72,15 @@ export function logout(token) { sessions.delete(token); }
 export function authenticate(req, _res, next) {
   const token = (req.headers.authorization || '').replace(/^Bearer /, '');
   const s = token && sessions.get(token);
-  if (s && Date.now() - s.creado < SESSION_TTL_MS) { req.perfil = s.perfil; req.token = token; } else req.perfil = 'publico';
+  if (s && Date.now() - s.creado < SESSION_TTL_MS && esPerfil(s.perfil)) { req.perfil = s.perfil; req.token = token; } else {
+    if (s) sessions.delete(token);
+    req.perfil = 'publico';
+  }
   next();
 }
 
 /** Middleware: exige un perfil de al menos el nivel indicado. */
 export const requirePerfil = (minimo) => (req, res, next) => {
-  if (PERFILES[req.perfil].nivel >= PERFILES[minimo].nivel) return next();
+  if (esPerfil(req.perfil) && PERFILES[req.perfil].nivel >= PERFILES[minimo].nivel) return next();
   res.status(403).json({ error: `Acción disponible solo para el perfil ${PERFILES[minimo].nombre}${minimo === 'administrador' ? '' : ' o superior'}.` });
 };

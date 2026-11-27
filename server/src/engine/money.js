@@ -20,6 +20,14 @@ export function formatCents(c) {
   return `${neg ? '-' : ''}${a / 100n}.${String(a % 100n).padStart(2, '0')}`;
 }
 
+/** 900719925474099301n -> "9,007,199,254,740,993.01" (exacto, sin pasar por Number). */
+export function formatCentsMiles(c) {
+  const [ent, dec] = formatCents(c).split('.');
+  const neg = ent.startsWith('-');
+  const digits = neg ? ent.slice(1) : ent;
+  return `${neg ? '-' : ''}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec}`;
+}
+
 /** Centavos -> número JS (solo para gráficos/JSON, nunca para sumar). */
 export const centsToNumber = (c) => Number(c) / 100;
 

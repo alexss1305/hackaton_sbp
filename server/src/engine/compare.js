@@ -1,4 +1,4 @@
-import { toCents, formatCents, pct } from './money.js';
+import { toCents, formatCents, formatCentsMiles, pct } from './money.js';
 
 /** Parámetros por defecto de "movimiento significativo" (configurables por el Administrador). */
 export const DEFAULT_PARAMS = {
@@ -7,7 +7,8 @@ export const DEFAULT_PARAMS = {
   umbralVarSaldoPct: 25, // |Var_Saldo_Pct| >= umbral (%); null o 0 para desactivar
 };
 
-const fmtMoney = (c) => Number(formatCents(c)).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const abs = (c) => (c < 0n ? -c : c);
+const fmtMoney = (c) => formatCentsMiles(abs(c));
 
 /**
  * Compara los rankings de dos períodos (Sección 8).
@@ -66,16 +67,20 @@ function explain(m, prev, curr) {
   for (const s of curr.subactividades) if (s.Ranking === m.Ranking && s.Codigo_Banco === m.Codigo_Banco) deltas.set(s.Subactividad, toCents(s.Saldo));
   for (const s of prev.subactividades) if (s.Ranking === m.Ranking && s.Codigo_Banco === m.Codigo_Banco) deltas.set(s.Subactividad, (deltas.get(s.Subactividad) ?? 0n) - toCents(s.Saldo));
   let driver = null;
-  for (const [sub, d] of deltas) if (!driver || (d < 0n ? -d : d) > (driver.d < 0n ? -driver.d : driver.d)) driver = { sub, d };
+  // Mayor variación absoluta; ante empate, la primera en el orden del catálogo (determinista)
+  for (const [sub, d] of deltas) if (!driver || abs(d) > abs(driver.d)) driver = { sub, d };
 
   const v = toCents(m.Var_Saldo);
   let txt;
   if (m.Cambio_Posicion > 0) txt = `${m.Banco} sube del puesto ${m.Posicion_Anterior} al ${m.Posicion_Actual} en ${m.Ranking}`;
   else if (m.Cambio_Posicion < 0) txt = `${m.Banco} baja del puesto ${m.Posicion_Anterior} al ${m.Posicion_Actual} en ${m.Ranking}`;
   else txt = `${m.Banco} se mantiene en el puesto ${m.Posicion_Actual} en ${m.Ranking}`;
-  if (m.Motivo_Significativo.includes('líder')) txt += m.Posicion_Actual === 1 ? ' y pasa a liderar el ranking' : ' y pierde el liderazgo';
-  txt += `. Su saldo ${v >= 0n ? 'crece' : 'cae'} ${fmtMoney(v < 0n ? -v : v)}`;
+  if (m.Motivo_Significativo.includes('líder')) {
+    if (m.Posicion_Actual === 1 && m.Posicion_Anterior !== 1) txt += ' y pasa a liderar el ranking';
+    else if (m.Posicion_Anterior === 1 && m.Posicion_Actual !== 1) txt += ' y pierde el liderazgo';
+  }
+  txt += v === 0n ? '. Su saldo no cambia' : `. Su saldo ${v > 0n ? 'crece' : 'cae'} ${fmtMoney(v)}`;
   if (m.Var_Saldo_Pct !== null) txt += ` (${Number(m.Var_Saldo_Pct) >= 0 ? '+' : ''}${m.Var_Saldo_Pct}%)`;
-  if (driver && driver.d !== 0n) txt += `; la subactividad con mayor variación es ${driver.sub} (${driver.d >= 0n ? '+' : '−'}${fmtMoney(driver.d < 0n ? -driver.d : driver.d)})`;
+  if (driver && driver.d !== 0n) txt += `; la subactividad con mayor variación es ${driver.sub} (${driver.d > 0n ? '+' : '−'}${fmtMoney(driver.d)})`;
   return txt + '.';
 }

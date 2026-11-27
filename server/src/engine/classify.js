@@ -12,12 +12,14 @@ function alert(r, mensaje) {
 export function classify(universe, cinuMap) {
   const alerts = [];
   let reclasificadas = 0;
+  // Destino de la reclasificación: la subactividad que el catálogo asigna al CINU de Tarjeta (no un texto fijo)
+  const subTarjeta = cinuMap.get(C.CINU_TARJETA)?.sub;
   const rows = universe.map((r) => {
     const cat = cinuMap.get(r.Tipo_Actividad);
     let sub = cat.sub;
     const fac = r.Facilidad_Crediticia;
-    if (r.Tipo_Actividad === C.CINU_CREDITO_PERSONAL && fac === C.FACILIDAD_TARJETA) {
-      sub = C.SUBACTIVIDAD_TARJETA; // Crédito personal + facilidad 07 => Tarjeta
+    if (r.Tipo_Actividad === C.CINU_CREDITO_PERSONAL && fac === C.FACILIDAD_TARJETA && subTarjeta) {
+      sub = subTarjeta; // Crédito personal + facilidad 07 => Tarjeta
       reclasificadas++;
     } else if (r.Tipo_Actividad === C.CINU_TARJETA && fac !== C.FACILIDAD_TARJETA) {
       alerts.push(alert(r, `CINU de Tarjeta con facilidad ${fac} (se esperaba ${C.FACILIDAD_TARJETA}); se mantiene la subactividad del catálogo`));

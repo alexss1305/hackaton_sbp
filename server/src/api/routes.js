@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate, requirePerfil, login, logout, PERFILES } from './auth.js';
+import { authenticate, requirePerfil, login, logout, PERFILES, esPerfil } from './auth.js';
 import { compareRankings } from '../engine/compare.js';
 import * as X from '../engine/exports.js';
 import { toCsv } from '../engine/csv.js';
@@ -12,10 +12,15 @@ export const FUENTE = 'Datos sintéticos con estructura regulatoria AT03 (Átomo
 const list = (v) => (v ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : []);
 const wrap = (fn) => (req, res, next) => { try { fn(req, res, next); } catch (e) { next(e); } };
 
-function sendCsv(res, name, csv) {
+/**
+ * Envía un CSV. Por defecto en UTF-8 SIN BOM, igual que los archivos del reto, para que la comparación del
+ * jurado lea el encabezado "Fecha" exacto. Con ?bom=1 se agrega el BOM (útil para abrir en Excel).
+ */
+function sendCsv(res, name, csv, { bom = false } = {}) {
+  const safe = name.replace(/[^\w.\-]/g, '_');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
-  res.send('﻿' + csv); // BOM para que Excel muestre bien los acentos
+  res.setHeader('Content-Disposition', `attachment; filename="${safe}"`);
+  res.send((bom ? '\ufeff' : '') + csv);
 }
 
 export function buildRouter(store, passwords) {
@@ -27,6 +32,7 @@ export function buildRouter(store, passwords) {
   // ---------- Sesión ----------
   r.post('/auth/login', express.json(), (req, res) => {
     const { perfil, password, usuario } = req.body || {};
+    if (!esPerfil(perfil)) return res.status(400).json({ error: 'Perfil inválido.' });
     const token = login(passwords, perfil, password, usuario);
     if (!token) return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     store.addLog(perfil, 'Inicio de sesión', `Perfil ${PERFILES[perfil].nombre}${usuario ? ` · usuario ${String(usuario).trim().toLowerCase()}` : ''}`);
@@ -112,7 +118,7 @@ export function buildRouter(store, passwords) {
       },
     }[t];
     if (!gen) return next();
-    sendCsv(res, `${t}${opts.fechas.length ? '_' + opts.fechas.join('-') : ''}.csv`, gen());
+    sendCsv(res, `${t}${opts.fechas.length ? '_' + opts.fechas.join('-') : ''}.csv`, gen(), { bom: req.query.bom === '1' });
   }));
 
   // ---------- Análisis (Analista y Administrador) ----------

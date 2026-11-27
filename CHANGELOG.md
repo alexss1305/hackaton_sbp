@@ -9,7 +9,32 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
-## (pendiente) — Estilo institucional SBP y acceso en dos pasos
+## (pendiente) — Auditoría del backend: casos borde, seguridad y exportaciones
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Motivo:** auditoría completa del backend contra `INDICACIONES_RETO_RANKING_CREDITO.md` con la nueva skill `auditoria-backend`. Cada hallazgo se reprodujo antes de corregirlo.
+
+**Hallazgos y correcciones**
+- **Login con perfiles heredados** (`server/src/api/auth.js`, `routes.js`): `login(..., 'constructor', '', '')` devolvía una sesión válida porque `PERFILES['constructor']` existe en `Object.prototype`. Ahora solo se aceptan claves propias (`esPerfil`), el login responde 400 con un perfil inválido, no hay acceso si falta la contraseña configurada y las sesiones vencidas se limpian.
+- **Ranking con 13 bancos** (`server/src/engine/aggregate.js`): un `Codigo_Banco` no catalogado se agregaba como banco extra del ranking. Ahora cada ranking tiene exactamente los bancos del catálogo (12); la fila no se excluye, queda como alerta y su saldo se informa en R3 (`saldoBancosNoCatalogados`).
+- **Fechas imposibles** (`server/src/engine/validate.js`): `20261399` o `20260230` pasaban la validación. Ahora `Fecha` debe ser una fecha real del calendario.
+- **Precisión en la explicación automática** (`server/src/engine/compare.js`, `money.js`): los montos se formateaban con `Number`, que pierde centavos sobre 2^53. Ahora se usa `formatCentsMiles` en `BigInt`. La redacción del cambio de líder solo dice "pasa a liderar" o "pierde el liderazgo" cuando corresponde.
+- **Retiro de un período dentro de un archivo con varios meses** (`server/src/store/store.js`): retirar julio movía el archivo completo y borraba también agosto sin aviso. Ahora se rechaza con un mensaje claro.
+- **CSV oficiales con BOM** (`server/src/api/routes.js`): las descargas empezaban con BOM, y un script de comparación podía leer el encabezado como `\ufeffFecha`. Ahora salen sin BOM, igual que los archivos del reto (con `?bom=1` para Excel), y el nombre del archivo descargado se sanea.
+- **Subactividad Tarjeta fija en el código** (`server/src/engine/classify.js`, `rules.js`): ahora se toma del catálogo CINU (R3).
+- **Catálogos con llaves repetidas o vacías** (`server/src/engine/catalogs.js`): ahora se rechazan al cargar o reemplazar un catálogo.
+- **Parámetros**: `cambioLider: "false"` (texto) se interpretaba como verdadero. Corregido.
+- **Demo** (`server/scripts/demo.js`): el período a retirar se elegía por nombre de archivo; ahora por el campo `Fecha`.
+
+**Pruebas:** nuevo `server/test/auditoria.test.js` con 18 casos (fechas reales, dos fechas en un archivo, `Destino` exacto, cascada múltiple, primera ocurrencia en E1, banco y facilidad no catalogados, reclasificación SB21 con centavos, ponderación exacta con 300 montos, cambio de líder con montos grandes, división por cero en `Var_Saldo_Pct`, exportaciones con encabezados exactos, CRLF, sin BOM y ceros a la izquierda, catálogos inválidos, perfiles heredados, retiro seguro y parámetros).
+
+**Verificación:** `npm test` 36 de 36 en verde. `npm run calc`: `rankings.csv`, `subactividades.csv`, `calidad.csv` y `movimientos.csv` idénticos byte a byte a los anteriores, y recálculo independiente en Python con 0 diferencias (216 filas de ranking, 792 de subactividad).
+
+**Skill:** `.claude/skills/auditoria-backend/SKILL.md` (ejecutar con `/auditoria-backend` en Claude Code).
+
+---
+
+## 671a178 — Estilo institucional SBP y acceso en dos pasos
 **Fecha:** 2026-11-27 · **Autor:** margelinho
 
 **Motivo:** la interfaz se veía simple. Se eligió la dirección «Institucional» (paleta del sitio de la SBP) y se aplicaron los cambios pedidos al inicio de sesión.

@@ -15,7 +15,14 @@ const accion = process.argv[2];
 fs.mkdirSync(demo, { recursive: true });
 
 if (accion === 'preparar') {
-  const files = fs.readdirSync(periodos).filter((f) => f.toLowerCase().endsWith('.csv')).sort();
+  // Ordena por el campo Fecha de la primera fila de datos (la regla del reto), no por el nombre del archivo
+  const fechaDe = (f) => {
+    const [header, primera = ''] = fs.readFileSync(path.join(periodos, f), 'utf8').replace(/^\ufeff/, '').split(/\r?\n/, 2);
+    const i = header.split(',').indexOf('Fecha');
+    return i >= 0 ? primera.split(',')[i] || '' : '';
+  };
+  const files = fs.readdirSync(periodos).filter((f) => f.toLowerCase().endsWith('.csv'))
+    .map((f) => ({ f, fecha: fechaDe(f) })).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.f.localeCompare(b.f)).map((x) => x.f);
   if (files.length < 2) { console.error('Se necesitan al menos 2 períodos en data/periodos.'); process.exit(1); }
   const ultimo = files.at(-1);
   fs.renameSync(path.join(periodos, ultimo), path.join(demo, ultimo));

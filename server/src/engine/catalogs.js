@@ -18,7 +18,20 @@ export function parseCatalog(kind, text) {
   const missing = spec.columns.filter((c) => !header.includes(c));
   if (missing.length) throw new Error(`${spec.file}: faltan columnas ${missing.join(', ')}`);
   if (rows.length === 0) throw new Error(`${spec.file}: el catálogo está vacío`);
-  return toObjects(header, rows);
+  const objs = toObjects(header, rows);
+  const key = spec.columns[0];
+  const vistos = new Set();
+  objs.forEach((o, i) => {
+    const v = o[key];
+    if (v === undefined || v === '' || v !== v.trim()) throw new Error(`${spec.file}: ${key} vacío o con espacios en la línea ${i + 2}`);
+    if (vistos.has(v)) throw new Error(`${spec.file}: ${key} "${v}" repetido (línea ${i + 2})`);
+    vistos.add(v);
+  });
+  if (kind === 'cinu') {
+    const sinClase = objs.findIndex((o) => !o.Macroactividad_Reto || !o.Subactividad_Reto);
+    if (sinClase >= 0) throw new Error(`${spec.file}: Macroactividad_Reto o Subactividad_Reto vacío en la línea ${sinClase + 2}`);
+  }
+  return objs;
 }
 
 /** Construye las estructuras de catálogos a partir de los objetos ya leídos. */

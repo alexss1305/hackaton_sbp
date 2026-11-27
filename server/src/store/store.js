@@ -118,6 +118,15 @@ export class Store {
 
   deletePeriod(fecha, perfil) {
     const p = this.period(fecha);
+    // Si un archivo del período también trae otros meses, retirarlo los borraría sin aviso
+    const otros = this.#files().filter((f) => p.archivos.includes(f.name))
+      .flatMap((f) => (readAt03(f.text, f.name, this.catalogs.schema).fechas || []).filter((x) => x !== fecha).map((x) => `${x} (${f.name})`));
+    if (otros.length) {
+      const e = new Error('No se puede retirar solo este período: su archivo contiene otros períodos.');
+      e.status = 400;
+      e.details = [`El archivo también trae ${otros.join(', ')}. Cargue un archivo actualizado sin este período o retire esos períodos también.`];
+      throw e;
+    }
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     for (const f of p.archivos) {
       const src = path.join(this.dir.periodos, f);
@@ -130,7 +139,7 @@ export class Store {
   updateParams(next, perfil) {
     const p = {
       minCambioPosicion: Math.max(1, Math.floor(Number(next.minCambioPosicion ?? this.params.minCambioPosicion))),
-      cambioLider: Boolean(next.cambioLider ?? this.params.cambioLider),
+      cambioLider: next.cambioLider === undefined ? Boolean(this.params.cambioLider) : [true, 'true', 1, '1', 'si', 'sí'].includes(next.cambioLider),
       umbralVarSaldoPct: Math.max(0, Number(next.umbralVarSaldoPct ?? this.params.umbralVarSaldoPct)),
     };
     if (!Number.isFinite(p.minCambioPosicion) || !Number.isFinite(p.umbralVarSaldoPct)) {

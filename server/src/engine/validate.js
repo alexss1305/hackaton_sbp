@@ -1,6 +1,14 @@
 import { toCents } from './money.js';
 
 const MAX_LISTED = 20;
+
+/** AAAAMMDD de 8 dígitos y fecha existente en el calendario (rechaza 20261399 o 20260230). */
+export function esFechaValida(v) {
+  if (!/^\d{8}$/.test(v)) return false;
+  const y = Number(v.slice(0, 4)); const m = Number(v.slice(4, 6)); const d = Number(v.slice(6, 8));
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
 const list = (a) => a.slice(0, MAX_LISTED).join(', ') + (a.length > MAX_LISTED ? `… (${a.length} en total)` : '');
 
 /**
@@ -31,11 +39,11 @@ export function validateAt03(header, rows, schema) {
   rows.forEach((r, idx) => {
     const line = idx + 2; // la línea 1 es el encabezado
     if (r.length !== schema.length) { badCount.push(line); return; }
-    if (!/^\d{8}$/.test(r[iFecha])) badFecha.push(line);
+    if (!esFechaValida(r[iFecha])) badFecha.push(line);
     if (toCents(r[iSaldo]) === null) badSaldo.push(line);
   });
   if (badCount.length) errors.push(`Filas con un número de campos distinto de ${schema.length}: líneas ${list(badCount)}.`);
-  if (badFecha.length) errors.push(`Fecha inválida (se espera AAAAMMDD): líneas ${list(badFecha)}.`);
+  if (badFecha.length) errors.push(`Fecha inválida (se espera una fecha real AAAAMMDD): líneas ${list(badFecha)}.`);
   if (badSaldo.length) errors.push(`Saldo no numérico: líneas ${list(badSaldo)}.`);
   return { ok: errors.length === 0, errors };
 }
@@ -48,7 +56,7 @@ export function referentialAlerts(rows, catalogs) {
   const alerts = [];
   for (const r of rows) {
     if (!catalogs.bancoMap.has(r.Codigo_Banco)) {
-      alerts.push({ Fecha: r.Fecha, Tipo: 'Banco no catalogado', Numero_Prestamo: r.Numero_Prestamo, Codigo_Banco: r.Codigo_Banco, Linea_Archivo: r._line, Mensaje: `Codigo_Banco ${r.Codigo_Banco} no existe en Bancos_ficticios.csv` });
+      alerts.push({ Fecha: r.Fecha, Tipo: 'Banco no catalogado', Numero_Prestamo: r.Numero_Prestamo, Codigo_Banco: r.Codigo_Banco, Linea_Archivo: r._line, Mensaje: `Codigo_Banco ${r.Codigo_Banco} no existe en Bancos_ficticios.csv; la fila no se excluye, pero no figura en los rankings de los bancos catalogados` });
     }
     if (!catalogs.sb21Map.has(r.Facilidad_Crediticia)) {
       alerts.push({ Fecha: r.Fecha, Tipo: 'Facilidad no catalogada', Numero_Prestamo: r.Numero_Prestamo, Codigo_Banco: r.Codigo_Banco, Linea_Archivo: r._line, Mensaje: `Facilidad_Crediticia ${r.Facilidad_Crediticia} no existe en Tabla_SB21_simplificada.csv` });
@@ -59,8 +67,8 @@ export function referentialAlerts(rows, catalogs) {
 
 /** Reglas de tipo según la columna `Tipo` del diccionario AT03. */
 const TYPE_RULES = {
-  'Fecha (AAAAMMDD)': { test: (v) => /^\d{8}$/.test(v), desc: 'fecha AAAAMMDD' },
-  'Fecha/Texto': { test: (v) => v === 'NA' || /^\d{8}$/.test(v), desc: 'fecha AAAAMMDD o NA' },
+  'Fecha (AAAAMMDD)': { test: (v) => esFechaValida(v), desc: 'fecha AAAAMMDD válida' },
+  'Fecha/Texto': { test: (v) => v === 'NA' || esFechaValida(v), desc: 'fecha AAAAMMDD válida o NA' },
   'Numerico (Decimal)': { test: (v) => v === 'NA' || /^-?\d+(\.\d+)?$/.test(v), desc: 'número decimal con punto' },
   'Numerico (Entero)': { test: (v) => v === 'NA' || /^-?\d+$/.test(v), desc: 'número entero' },
   'Codigo (Texto)': { test: (v) => v.trim() !== '' && v === v.trim(), desc: 'código no vacío y sin espacios' },

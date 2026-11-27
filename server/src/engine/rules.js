@@ -13,7 +13,6 @@ export const CONSUMO_RULES = {
   CINU_TARJETA: 'K.64.649.6499.64991',
   FACILIDAD_TARJETA: '07',
   FACILIDAD_AUTO: '03',
-  SUBACTIVIDAD_TARJETA: 'Tarjeta',
 };
 
 /** Rankings en el orden de prioridad del reto (Sección 5). */
