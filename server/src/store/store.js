@@ -9,6 +9,7 @@ import { loadCatalogs, parseCatalog, buildCatalogs, CATALOG_FILES } from '../eng
 import { buildDataset, buildComparisons, readAt03 } from '../engine/pipeline.js';
 import { compareRankings, DEFAULT_PARAMS } from '../engine/compare.js';
 import { diagnosticarAt03 } from '../engine/diagnose.js';
+import { Usuarios } from './usuarios.js';
 import { normalizar, defaultAsignaciones, tienePermiso, permisosDe, PERMISOS } from '../api/permisos.js';
 
 export class Store {
@@ -26,6 +27,8 @@ export class Store {
     this.params = this.#readJson(this.paramsFile, DEFAULT_PARAMS);
     this.log = this.#readJson(this.logFile, []);
     this.permisos = normalizar(this.#readJson(this.permisosFile, {}));
+    this.usuarios = new Usuarios(path.join(dataDir, 'usuarios.json'), ['analista', 'admin', process.env.ANALISTA_USER, process.env.ADMIN_USER].filter(Boolean));
+    this.cacheHistorial = new Map(); // archivo -> { mtime, fechas, filas }
     this.catalogs = loadCatalogs(this.dir.catalogos);
     this.recalculate();
   }
@@ -175,6 +178,54 @@ export class Store {
     this.catalogs = loadCatalogs(this.dir.catalogos);
     this.recalculate();
     this.addLog(perfil, 'Actualización de catálogo', `${spec.file} (${parsed.length} registros). Recalculado en ${this.lastDurationMs} ms`);
+  }
+
+  // ---------- Versiones y publicaciones ----------
+  /** Versiones anteriores de un período guardadas en data/historial (más reciente primero). */
+  versiones(fecha) {
+    const out = [];
+    for (const f of fs.readdirSync(this.dir.historial).filter((x) => x.toLowerCase().endsWith('.csv'))) {
+      const full = path.join(this.dir.historial, f);
+      const mtime = fs.statSync(full).mtimeMs;
+      let info = this.cacheHistorial.get(f);
+      if (!info || info.mtime !== mtime) {
+        const r = readAt03(fs.readFileSync(full, 'utf8'), f, this.catalogs.schema);
+        info = { mtime, fechas: r.ok ? r.fechas : [], filas: r.ok ? r.totalRows : 0 };
+        this.cacheHistorial.set(f, info);
+      }
+      if (!info.fechas.includes(fecha)) continue;
+      const m = /^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})/.exec(f);
+      out.push({ archivo: f, nombreOriginal: f.replace(/^\d{4}-\d{2}-\d{2}T[\d-]+Z_/, ''), guardado: m ? `${m[1]}T${m[2]}:${m[3]}:${m[4]}Z` : null, filas: info.filas, fechas: info.fechas });
+    }
+    return out.sort((a, b) => String(b.guardado).localeCompare(String(a.guardado)));
+  }
+
+  /** Restaura una versión del historial: el archivo actual pasa al historial y se recalcula todo. */
+  restaurarVersion(fecha, archivo, perfil) {
+    const v = this.versiones(fecha).find((x) => x.archivo === archivo);
+    if (!v) { const e = new Error('Esa versión no existe en el historial de este período.'); e.status = 404; throw e; }
+    const text = fs.readFileSync(path.join(this.dir.historial, archivo), 'utf8');
+    const r = this.uploadPeriod(v.nombreOriginal, text, perfil);
+    fs.rmSync(path.join(this.dir.historial, archivo), { force: true });
+    this.addLog(perfil, 'Versión restaurada', `Fecha ${fecha}: se restauró ${v.nombreOriginal} guardado el ${v.guardado ?? 'sin fecha'}`);
+    return r;
+  }
+
+  /** Lista tipo "publicaciones" (una fila por período) con quién lo cargó y cuántas versiones tiene. */
+  publicaciones() {
+    return [...this.periods].reverse().map((p) => {
+      const q = p.quality;
+      const log = this.log.find((l) => ['Carga de período', 'Actualización de período', 'Versión restaurada'].includes(l.Accion)
+        && (p.archivos.some((a) => String(l.Detalle).includes(a)) || String(l.Detalle).includes(p.fecha)));
+      return {
+        fecha: p.fecha, archivos: p.archivos, filas: q.Filas_Leidas, universo: q.Universo_Local_Valido, saldo: q.Saldo_Universo_Local_Valido,
+        excluidas: q.Filas_Leidas - q.Universo_Local_Valido, alertas: q.Alertas,
+        estado: q.Alertas > 0 ? 'Con observaciones' : 'Publicado',
+        verificado: Boolean(q.Reconciliacion_1 && q.Reconciliacion_2 && q.Reconciliacion_3 && q.Cuadre_Cascada),
+        cargadoPor: log?.Perfil ?? null, cargadoEn: log?.Fecha_Hora ?? null, accion: log?.Accion ?? 'Archivo inicial',
+        versiones: this.versiones(p.fecha).length,
+      };
+    });
   }
 
   // ---------- Permisos por perfil ----------

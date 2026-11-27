@@ -3,6 +3,8 @@ import { api, download } from '../api.js';
 import { useApi, ErrorBox, Loading, SortableTable, Badge, Select } from '../components/ui.jsx';
 import { fmtInt, fmtPeriodo, fmtFechaHora, fmtMoney, fmtRanking } from '../format.js';
 import Diagnostico from '../components/Diagnostico.jsx';
+import { useConfirmar } from '../components/Confirmar.jsx';
+import Usuarios from '../components/Usuarios.jsx';
 import { etiquetaMotivo } from '../labels.js';
 
 const readFile = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(file, 'utf-8'); });
@@ -22,7 +24,7 @@ export default function Admin({ ctx }) {
         <Parametros ctx={ctx} />
       </div>
       <Permisos />
-      <Contrasenas />
+      <Usuarios />
       <Catalogos ctx={ctx} />
       <Bitacora />
     </>
@@ -38,6 +40,8 @@ function Carga({ ctx }) {
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const [rechazo, setRechazo] = useState(null); // diagnóstico de un archivo que no se puede importar
+  const [dlg, confirmar] = useConfirmar();
+  const paso = result ? 3 : preview || rechazo ? 2 : 1;
 
   const pick = async (f) => {
     setResult(null); setPreview(null); setError(null); setRechazo(null);
@@ -56,6 +60,28 @@ function Carga({ ctx }) {
     try { await download(`/admin/periods/diagnostico.csv?nombre=${encodeURIComponent(file.name)}&bom=1`, 'diagnostico.csv', { method: 'POST', body: text, headers: { 'Content-Type': 'text/csv' } }); } catch (e) { setError(e); }
   };
   const confirm = async () => {
+    const fechas = preview.fechas;
+    const antes = ctx.meta.periodos.filter((p) => fechas.includes(p.fecha));
+    const despues = preview.diagnostico?.porPeriodo || [];
+    const ok = await confirmar(preview.reemplaza.length ? {
+      titulo: `Reemplazar ${fechas.map(fmtPeriodo).join(', ')}`,
+      mensaje: `El período ya existe. El archivo actual (${preview.reemplaza.join(', ')}) pasará al historial y se recalcularán todos los rankings. Podrá restaurarlo desde "Versiones".`,
+      cambios: fechas.flatMap((f) => {
+        const a = antes.find((x) => x.fecha === f); const d = despues.find((x) => x.Fecha === f);
+        return [
+          { dato: `${fmtPeriodo(f)} · filas`, antes: a ? fmtInt(a.filas) : null, despues: d ? fmtInt(d.Filas_Leidas) : null },
+          { dato: `${fmtPeriodo(f)} · universo válido`, antes: a ? fmtInt(a.universo) : null, despues: d ? fmtInt(d.Universo_Local_Valido) : null },
+        ];
+      }),
+      confirmarTexto: 'Reemplazar y recalcular',
+      peligro: true,
+    } : {
+      titulo: `Importar ${fechas.map(fmtPeriodo).join(', ')}`,
+      mensaje: `Se agregará ${fechas.length === 1 ? 'un período nuevo' : `${fechas.length} períodos nuevos`} y se recalcularán los rankings y las comparaciones.`,
+      cambios: despues.map((d) => ({ dato: `${fmtPeriodo(d.Fecha)} · universo válido`, antes: null, despues: fmtInt(d.Universo_Local_Valido) })),
+      confirmarTexto: 'Importar y recalcular',
+    });
+    if (!ok) return;
     setBusy(true); setError(null);
     try {
       const r = await api(`/admin/periods?nombre=${encodeURIComponent(file.name)}`, { method: 'POST', body: text, headers: { 'Content-Type': 'text/csv' } });
@@ -68,6 +94,11 @@ function Carga({ ctx }) {
   return (
     <div className="card">
       <h2>Cargar o actualizar un período</h2>
+      <ol className="stepper" aria-label="Pasos de la carga">
+        {['Elegir archivo', 'Revisar diagnóstico', 'Listo'].map((t, i) => (
+          <li key={t} className={paso === i + 1 ? 'on' : paso > i + 1 ? 'done' : ''} aria-current={paso === i + 1 ? 'step' : undefined}><span>{paso > i + 1 ? '✓' : i + 1}</span>{t}</li>
+        ))}
+      </ol>
       <p className="sub">Archivo AT03 en CSV con las 61 columnas del diccionario. El período se toma del campo Fecha. Si el período ya existe, se reemplaza (el archivo anterior queda en historial).</p>
       <div className={`dropzone ${over ? 'over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
@@ -118,41 +149,96 @@ function Carga({ ctx }) {
               ) : <p className="muted">Es el primer período: no hay período anterior para comparar.</p>}
             </div>
           ))}
-          <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => ctx.goTo('comparar')}>Ver comparación completa</button>
+          <div className="toolbar">
+            <button className="btn" onClick={() => ctx.goTo('comparar')}>Ver comparación completa</button>
+            <button className="btn" onClick={() => setResult(null)}>Cargar otro archivo</button>
+          </div>
         </div>
       )}
+      {dlg}
     </div>
   );
 }
 
 function Periodos({ ctx }) {
   const [error, setError] = useState(null);
-  const remove = async (fecha) => {
-    if (!window.confirm(`¿Retirar el período ${fmtPeriodo(fecha)}? El archivo se mueve a historial y se recalculan los rankings.`)) return;
-    try { await api(`/admin/periods/${fecha}`, { method: 'DELETE' }); await ctx.reloadMeta(); } catch (e) { setError(e); }
+  const [ok, setOk] = useState(null);
+  const [abierto, setAbierto] = useState(null);
+  const [versiones, setVersiones] = useState([]);
+  const [dlg, confirmar] = useConfirmar();
+  const remove = async (p) => {
+    const si = await confirmar({
+      titulo: `Retirar ${fmtPeriodo(p.fecha)}`, peligro: true, palabra: 'RETIRAR', confirmarTexto: 'Retirar período',
+      mensaje: 'El período dejará de mostrarse en rankings, comparaciones y reportes. El archivo pasa al historial y se puede restaurar volviendo a cargarlo.',
+      cambios: [{ dato: 'Períodos cargados', antes: fmtInt(ctx.meta.periodos.length), despues: fmtInt(ctx.meta.periodos.length - 1) }, { dato: 'Filas del período', antes: fmtInt(p.filas), despues: '0' }],
+    });
+    if (!si) return;
+    setError(null); setOk(null);
+    try { await api(`/admin/periods/${p.fecha}`, { method: 'DELETE' }); await ctx.reloadMeta(); setOk(`Se retiró ${fmtPeriodo(p.fecha)}.`); } catch (e) { setError(e); }
   };
-  const recalc = async () => { try { await api('/admin/recalculate', { method: 'POST' }); await ctx.reloadMeta(); } catch (e) { setError(e); } };
+  const verVersiones = async (fecha) => {
+    if (abierto === fecha) { setAbierto(null); return; }
+    setError(null);
+    try { setVersiones(await api(`/admin/periods/${fecha}/versiones`)); setAbierto(fecha); } catch (e) { setError(e); }
+  };
+  const restaurar = async (fecha, v) => {
+    const si = await confirmar({
+      titulo: `Restaurar versión de ${fmtPeriodo(fecha)}`, peligro: true, confirmarTexto: 'Restaurar y recalcular',
+      mensaje: `Se restaurará ${v.nombreOriginal} (guardado el ${v.guardado ? new Date(v.guardado).toLocaleString('es-PA') : 'sin fecha'}). La versión actual pasará al historial.`,
+      cambios: [{ dato: 'Filas', antes: fmtInt(ctx.meta.periodos.find((x) => x.fecha === fecha)?.filas), despues: fmtInt(v.filas) }],
+    });
+    if (!si) return;
+    setError(null); setOk(null);
+    try { await api(`/admin/periods/${fecha}/restaurar`, { method: 'POST', body: { archivo: v.archivo } }); await ctx.reloadMeta(); setAbierto(null); setOk(`Versión restaurada para ${fmtPeriodo(fecha)}.`); } catch (e) { setError(e); }
+  };
+  const recalc = async () => { try { await api('/admin/recalculate', { method: 'POST' }); await ctx.reloadMeta(); setOk('Todo recalculado desde los archivos.'); } catch (e) { setError(e); } };
   return (
     <div className="card">
       <h2>Períodos cargados</h2>
-      <p className="sub">Los rankings se recalculan desde estos archivos.</p>
+      <p className="sub">Los rankings se recalculan desde estos archivos. Cada reemplazo guarda la versión anterior.</p>
       <ErrorBox error={error} />
+      {ok && <div className="alert success">{ok}</div>}
       {ctx.meta.erroresArchivos?.map((e) => <div key={e.archivo} className="alert error">Archivo rechazado {e.archivo}: {e.errores.join(' ')}</div>)}
       <table>
         <thead><tr><th>Período</th><th>Archivo</th><th className="num">Filas</th><th className="num">Universo</th><th /></tr></thead>
         <tbody>
           {ctx.meta.periodos.map((p) => (
-            <tr key={p.fecha}>
-              <td>{fmtPeriodo(p.fecha)}<br /><span className="muted">{p.fecha}</span></td>
-              <td>{p.archivos.join(', ')}</td>
-              <td className="num">{fmtInt(p.filas)}</td>
-              <td className="num">{fmtInt(p.universo)}</td>
-              <td><button className="btn danger" onClick={() => remove(p.fecha)}>Retirar</button></td>
-            </tr>
+            <Fragment key={p.fecha}>
+              <tr>
+                <td>{fmtPeriodo(p.fecha)}<br /><span className="muted">{p.fecha}</span></td>
+                <td>{p.archivos.join(', ')}</td>
+                <td className="num">{fmtInt(p.filas)}</td>
+                <td className="num">{fmtInt(p.universo)}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className="btn" onClick={() => verVersiones(p.fecha)} aria-expanded={abierto === p.fecha}>Versiones</button>{' '}
+                  <button className="btn danger" onClick={() => remove(p)}>Retirar</button>
+                </td>
+              </tr>
+              {abierto === p.fecha && (
+                <tr><td colSpan={5}>
+                  {versiones.length === 0 ? <span className="muted">No hay versiones anteriores de este período.</span> : (
+                    <table>
+                      <thead><tr><th>Archivo</th><th>Guardado</th><th className="num">Filas</th><th /></tr></thead>
+                      <tbody>
+                        {versiones.map((v) => (
+                          <tr key={v.archivo}>
+                            <td>{v.nombreOriginal}</td>
+                            <td>{v.guardado ? new Date(v.guardado).toLocaleString('es-PA') : '—'}</td>
+                            <td className="num">{fmtInt(v.filas)}</td>
+                            <td><button className="btn" onClick={() => restaurar(p.fecha, v)}>Restaurar</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </td></tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>
       <button className="btn" style={{ marginTop: 12 }} onClick={recalc}>Recalcular todo</button>
+      {dlg}
     </div>
   );
 }
@@ -188,6 +274,7 @@ function Parametros({ ctx }) {
 }
 
 function Catalogos({ ctx }) {
+  const [dlg, confirmar] = useConfirmar();
   const { data, error, loading, reload } = useApi('/admin/catalogs');
   const [kind, setKind] = useState('cinu');
   const [msg, setMsg] = useState(null);
@@ -195,7 +282,7 @@ function Catalogos({ ctx }) {
   const replace = async (f) => {
     setMsg(null); setUpErr(null);
     if (!f) return;
-    if (!window.confirm(`¿Reemplazar el catálogo ${data[kind].archivo} con ${f.name}? Se recalcularán todos los rankings.`)) return;
+    if (!(await confirmar({ titulo: `Reemplazar ${data[kind].archivo}`, peligro: true, confirmarTexto: 'Reemplazar y recalcular', mensaje: `Se reemplazará el catálogo con ${f.name} y se recalcularán todos los rankings. Se guarda copia del catálogo anterior en el historial.` }))) return;
     try {
       await api(`/admin/catalogs/${kind}`, { method: 'PUT', body: await readFile(f), headers: { 'Content-Type': 'text/csv' } });
       setMsg('Catálogo actualizado y rankings recalculados.'); reload(); await ctx.reloadMeta();
@@ -217,6 +304,7 @@ function Catalogos({ ctx }) {
       {msg && <div className="alert success">{msg}</div>}
       <ErrorBox error={upErr} />
       <SortableTable rows={c.filas} maxHeight={340} columns={c.columnas.map((col) => ({ key: col, label: col, wrap: col.startsWith('Desc') || col === 'Regla_clave' }))} />
+      {dlg}
     </div>
   );
 }
@@ -249,7 +337,7 @@ function Permisos() {
   return (
     <div className="card">
       <h2>Perfiles y permisos</h2>
-      <p className="sub">Los tres perfiles están definidos por el reto. Esta tabla solo los muestra. Las funciones de Administración y de Consultas no se pueden pasar a otro perfil.</p>
+      <p className="sub">Los tres perfiles están definidos por el reto. Esta tabla solo los muestra. Las funciones de Administración no se pueden pasar a otro perfil.</p>
       <table>
         <thead><tr><th>Qué puede hacer</th>{PERFIL_COLS.map((c) => <th key={c.id}>{c.label}</th>)}<th>Administrador</th></tr></thead>
         <tbody>
@@ -269,36 +357,5 @@ function Permisos() {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function Contrasenas() {
-  const [perfil, setPerfil] = useState('analista');
-  const [password, setPassword] = useState('');
-  const [msg, setMsg] = useState(null);
-  const [err, setErr] = useState(null);
-  const guardar = async (e) => {
-    e.preventDefault();
-    setErr(null); setMsg(null);
-    try {
-      await api('/admin/contrasena', { method: 'PUT', body: { perfil, password } });
-      setPassword('');
-      setMsg('Contraseña actualizada. No se vuelve a mostrar.');
-    } catch (ex) { setErr(ex); }
-  };
-  return (
-    <form className="card" onSubmit={guardar}>
-      <h2>Contraseñas</h2>
-      <p className="sub">Escriba una contraseña nueva para Analista o Administrador. La actual no se muestra.</p>
-      <div className="toolbar">
-        <Select label="Perfil" value={perfil} onChange={setPerfil} options={[{ value: 'analista', label: 'Analista' }, { value: 'administrador', label: 'Administrador' }]} />
-        <label className="field">Contraseña nueva
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} />
-        </label>
-        <button className="btn primary" type="submit">Guardar contraseña</button>
-      </div>
-      {msg && <div className="alert success">{msg}</div>}
-      <ErrorBox error={err} />
-    </form>
   );
 }

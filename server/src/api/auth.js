@@ -62,11 +62,22 @@ export function login(creds, perfil, password, usuario) {
     const okPass = safeEqual(password ?? '', c?.password ?? '');
     if (!c || !okUser || !okPass) return null;
   }
+  return crearSesion(perfil, perfil === 'publico' ? null : String(usuario ?? '').trim().toLowerCase());
+}
+
+/** Crea una sesión para un perfil (y el usuario que la abrió, si es personal). */
+export function crearSesion(perfil, usuario = null) {
+  if (!esPerfil(perfil)) return null;
   const token = crypto.randomBytes(24).toString('base64url');
   const ahora = Date.now();
   for (const [t, s] of sessions) if (ahora - s.creado >= SESSION_TTL_MS) sessions.delete(t); // limpia sesiones vencidas
-  sessions.set(token, { perfil, creado: ahora });
+  sessions.set(token, { perfil, usuario, creado: ahora });
   return token;
+}
+
+/** Cierra todas las sesiones de un usuario (al desactivarlo, borrarlo o cambiar su rol). */
+export function cerrarSesionesDe(usuario) {
+  for (const [t, s] of sessions) if (s.usuario === usuario) sessions.delete(t);
 }
 
 export function logout(token) { sessions.delete(token); }
@@ -100,7 +111,7 @@ export function cambiarContrasena(creds, perfil, password) {
 export function authenticate(req, _res, next) {
   const token = (req.headers.authorization || '').replace(/^Bearer /, '');
   const s = token && sessions.get(token);
-  if (s && Date.now() - s.creado < SESSION_TTL_MS && esPerfil(s.perfil)) { req.perfil = s.perfil; req.token = token; } else {
+  if (s && Date.now() - s.creado < SESSION_TTL_MS && esPerfil(s.perfil)) { req.perfil = s.perfil; req.usuario = s.usuario; req.token = token; } else {
     if (s) sessions.delete(token);
     req.perfil = 'publico';
   }

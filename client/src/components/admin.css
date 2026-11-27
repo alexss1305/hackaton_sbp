@@ -1,0 +1,51 @@
+/* Administración, publicaciones y registros (frente D) */
+.cf-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(14,16,60,.5); display: grid; place-items: center; padding: 20px; animation: ad-fade .15s ease; }
+.cf { width: min(520px, 100%); background: var(--surface-1); border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.3); padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; animation: ad-up .2s ease; }
+.cf-head { display: flex; align-items: center; gap: 12px; }
+.cf-ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--indigo); flex: none; }
+.cf.peligro .cf-ico { background: var(--bad-bg); color: var(--bad); }
+.cf-msg { margin: 0; color: var(--text-primary); }
+.cf-det { margin: 0; font-size: 12.5px; color: var(--text-secondary); }
+.cf-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cf-tabla th { position: static; }
+.cf-tabla tr.cambia td { background: var(--gold-soft); }
+.cf-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.btn-peligro { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn-peligro:disabled { opacity: .45; }
+
+.stepper { display: flex; gap: 6px; list-style: none; margin: 0 0 14px; padding: 0; flex-wrap: wrap; }
+.stepper li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; background: var(--surface-2); color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+.stepper li span { width: 22px; height: 22px; border-radius: 99px; display: grid; place-items: center; background: var(--surface-1); font-size: 11px; }
+.stepper li.on { background: var(--indigo); color: #fff; }
+.stepper li.on span { background: var(--gold); color: var(--navy); }
+.stepper li.done { color: var(--good); }
+
+.us-rol { display: inline-flex; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--navy); }
+.us-rol.administrador { background: var(--gold-soft); color: var(--gold-ink); }
+.us-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+.us-form .field input, .us-form .field select { width: 100%; min-width: 0; }
+
+.pub-list { display: flex; flex-direction: column; gap: 10px; }
+.pub { display: grid; grid-template-columns: 64px 1fr auto; gap: 16px; align-items: center; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--surface-1); animation: ad-up .25s ease both; }
+.pub:hover { border-color: var(--indigo); box-shadow: var(--shadow); }
+.pub-fecha { text-align: center; border-radius: 10px; background: linear-gradient(145deg, var(--navy), var(--violet)); color: #fff; padding: 8px 0; line-height: 1.1; }
+.pub-fecha b { display: block; font-size: 20px; }
+.pub-fecha span { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.pub-info h3 { margin: 0 0 4px; }
+.pub-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--text-secondary); }
+.pub-acc { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pub-estado { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 99px; }
+.pub-estado.ok { background: var(--good-bg); color: var(--good); }
+.pub-estado.obs { background: var(--warn-bg); color: var(--warn); }
+.pub-vers { grid-column: 1 / -1; border-top: 1px dashed var(--border); padding-top: 10px; }
+
+.rg-link { border: 0; background: none; color: var(--link); cursor: pointer; padding: 0; font-weight: 600; }
+.rg-link:hover { text-decoration: underline; }
+.rg-estado { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.rg-estado.valida { background: var(--good-bg); color: var(--good); }
+.rg-estado.excluida { background: var(--bad-bg); color: var(--bad); }
+
+@keyframes ad-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ad-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cf, .cf-backdrop, .pub { animation: none; } }
+@media (max-width: 700px) { .pub { grid-template-columns: 56px 1fr; } .pub-acc { grid-column: 1 / -1; justify-content: flex-start; } }

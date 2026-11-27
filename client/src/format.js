@@ -44,3 +44,10 @@ export const fmtRanking = (r) => (r ? r.charAt(0) + r.slice(1).toLowerCase() : r
 
 /** Paleta categórica validada (orden fijo). Se asigna por categoría, nunca por rango. */
 export const SERIES = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)', 'var(--series-5)', 'var(--series-6)', 'var(--series-7)', 'var(--series-8)'];
+
+/** Nombre del ranking como lo publica la SBP (solo para mostrar; el cálculo y las exportaciones usan Macroactividad_Reto). */
+const NOMBRE_SBP = {
+  HIPOTECARIO: 'Crédito Hipotecario', CONSTRUCCION: 'Créditos para la Construcción', INDUSTRIA: 'Créditos para la Industria',
+  AGROPECUARIO: 'Créditos Agropecuarios', COMERCIO: 'Crédito Comercial', CONSUMO: 'Crédito al Consumo',
+};
+export const fmtRankingSBP = (r) => NOMBRE_SBP[r] || fmtRanking(r);

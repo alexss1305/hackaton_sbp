@@ -4,6 +4,7 @@ import { useApi, ErrorBox, Loading } from '../components/ui.jsx';
 import { Icon } from '../components/brand.jsx';
 import BancoCard from '../components/BancoCard.jsx';
 import BancoFicha from '../components/BancoFicha.jsx';
+import { tomarFoco } from '../foco.js';
 import { fmtCorte, fmtMoney, fmtPct } from '../format.js';
 
 const ORDEN = [
@@ -20,7 +21,7 @@ export default function Bancos({ ctx }) {
   const { data, error, loading } = useApi(`/bancos?fecha=${fecha}`);
   const [buscar, setBuscar] = useState('');
   const [orden, setOrden] = useState('cartera');
-  const [sel, setSel] = useState(null);
+  const [sel, setSel] = useState(() => tomarFoco('bancos')?.banco || null);
   usePublicarSeleccion({ banco_codigo: sel || '', banco: (data?.bancos || []).find((b) => b.codigo === sel)?.nombre || '', busqueda: buscar, orden });
 
   const promedio = useMemo(() => {
