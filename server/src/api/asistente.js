@@ -4,7 +4,8 @@
  */
 import { compareRankings } from '../engine/compare.js';
 
-const MODEL = 'gemini-2.0-flash';
+// Alias que Google mantiene apuntando al modelo Flash vigente (los nombres con versión se retiran con el tiempo)
+const MODEL = () => process.env.GEMINI_MODEL || 'gemini-flash-latest';
 const MAX_PREGUNTA = 1000;
 const MAX_TURNOS = 6;
 
@@ -59,7 +60,7 @@ export async function preguntar(store, { fecha, pregunta, historial = [] }) {
     .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content.slice(0, 4000) }] }));
   while (previos.length && previos[0].role !== 'user') previos.shift();
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL()}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`;
   let res;
   try {
     res = await fetch(url, {
@@ -78,10 +79,13 @@ export async function preguntar(store, { fecha, pregunta, historial = [] }) {
   if (!res.ok) {
     const e = new Error(res.status === 400 || res.status === 403
       ? 'La clave GEMINI_API_KEY no es válida.'
-      : 'El servicio de IA respondió con un error. Intente de nuevo en unos segundos.');
+      : res.status === 404 ? `El modelo de IA "${MODEL()}" no está disponible. Configure GEMINI_MODEL en .env con un modelo vigente.`
+        : res.status === 429 ? 'Se alcanzó el límite de consultas de la clave de IA. Espere un momento.'
+          : 'El servicio de IA respondió con un error. Intente de nuevo en unos segundos.');
+    console.warn(`[asistente] Gemini respondió ${res.status}: ${body.error?.message || ''}`.slice(0, 300));
     e.status = 502;
     throw e;
   }
   const texto = (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('\n').trim();
-  return { respuesta: texto || 'No obtuve una respuesta. Intente de nuevo.', modelo: MODEL };
+  return { respuesta: texto || 'No obtuve una respuesta. Intente de nuevo.', modelo: MODEL() };
 }
