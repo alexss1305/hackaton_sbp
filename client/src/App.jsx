@@ -11,7 +11,7 @@ import Comparar from './pages/Comparar.jsx';
 import Calidad from './pages/Calidad.jsx';
 import Reportes from './pages/Reportes.jsx';
 import Admin from './pages/Admin.jsx';
-import Asistente from './pages/Asistente.jsx';
+import ChatFlotante from './components/ChatFlotante.jsx';
 import Consultas from './pages/Consultas.jsx';
 import { Icon, Monogram } from './components/brand.jsx';
 import PeriodPicker from './components/PeriodPicker.jsx';
@@ -30,7 +30,6 @@ const PAGES = [
   { id: 'calidad', label: 'Calidad de datos', icon: 'check', min: 'publico', group: 'Consulta', C: Calidad },
   { id: 'reportes', label: 'Reportes y descargas', icon: 'download', min: 'publico', group: 'Consulta', C: Reportes },
   { id: 'comparar', label: 'Comparar períodos', icon: 'compare', min: 'publico', permiso: 'comparar_periodos', group: 'Análisis', C: Comparar },
-  { id: 'asistente', label: 'Asistente IA', icon: 'spark', min: 'publico', permiso: 'asistente_ia', group: 'Análisis', C: Asistente },
   { id: 'admin', label: 'Administración', icon: 'settings', min: 'administrador', group: 'Control', C: Admin },
   { id: 'consultas', label: 'Consultas', icon: 'table', min: 'administrador', group: 'Control', C: Consultas },
 ];
@@ -153,6 +152,9 @@ export default function App() {
         </span>
         <span className="footer-note"><Icon name="info" />Datos sintéticos / Uso informativo, no constituye opinión de la SBP</span>
       </footer>
+      {puede('asistente_ia') && meta && (
+        <ChatFlotante pantalla={{ id: current.id, label: current.label }} fecha={fecha} perfilNombre={user.nombre} iaConfigurada={Boolean(meta.asistenteDisponible)} />
+      )}
     </div>
   );
 }

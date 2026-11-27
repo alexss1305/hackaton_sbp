@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePublicarSeleccion } from '../asistenteContexto.js';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ErrorBox, Loading, SortableTable, ChartTooltip, MultiSelect, Legend } from '../components/ui.jsx';
 import { api, download, qs } from '../api.js';
@@ -40,6 +41,7 @@ export default function Explorar({ ctx }) {
   const subsDisp = rkOn.flatMap((r) => meta.subactividades[r]);
   const subsOn = subs.filter((s) => subsDisp.includes(s));
   const fechasOn = fechas.length ? [...fechas].sort() : [fecha];
+  usePublicarSeleccion({ fechas: fechasOn, actividades: rkOn, subactividades: subsOn, bancos: bancos.map((c) => meta.bancos.find((b) => b.codigo === c)?.nombre || c), agrupar: eje, dividir: serie, grafico });
 
   useEffect(() => {
     let alive = true;

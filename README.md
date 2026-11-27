@@ -35,8 +35,11 @@ El control se aplica **en el servidor** (middleware `permiso(...)` en cada ruta)
 El inicio de sesión tiene dos pasos: **Público** entra directo; **Personal de la Superintendencia** abre una segunda vista donde se elige Analista o Administrador y se ingresa usuario y contraseña.
 `.env` no se versiona (`.gitignore`); si falta una contraseña, el servidor genera una temporal y la muestra en consola.
 
-### Asistente de IA (opcional)
-Agregue `GEMINI_API_KEY` a `.env` y reinicie el servidor para habilitar *Asistente IA*. El asistente (`server/src/api/asistente.js`, modelo Gemini) recibe **solo los resultados ya calculados** del período y tiene instrucciones de no inventar ni recalcular cifras: **explica, no calcula** (Sección 9 del reto). Sin clave, la pantalla indica cómo habilitarlo y el resto de la plataforma funciona igual.
+### Asistente SBP (chat flotante)
+Botón **Asistente** abajo a la derecha en todas las pantallas (permiso `asistente_ia`, activo para Público y Analista por defecto). Tiene dos funciones:
+- **Guía de uso:** responde "¿cómo hago…?" con pasos concretos según la guía del sistema (`server/src/api/guia-sistema.js`) y solo ofrece funciones del perfil del usuario.
+- **Explicación de datos:** con `GEMINI_API_KEY` en `.env` (modelo `gemini-flash-latest`, configurable con `GEMINI_MODEL`) explica lo que el usuario ve: recibe la pantalla, el período y la selección (ranking, bancos, fechas, filtros) y **solo resultados ya calculados**; no inventa ni recalcula cifras (Sección 9 del reto).
+Sin clave, funciona en **modo guía** (sin IA) y el resto de la plataforma funciona igual.
 
 ## Arquitectura
 ```

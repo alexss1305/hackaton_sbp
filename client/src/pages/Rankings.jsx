@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { usePublicarSeleccion } from '../asistenteContexto.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useApi, ErrorBox, Loading, SortableTable, ChartTooltip, Legend } from '../components/ui.jsx';
 import { download, qs } from '../api.js';
@@ -12,6 +13,7 @@ export default function Rankings({ ctx }) {
   const subs = useApi(`/periods/${fecha}/subactividades${qs({ rankings: [ranking] })}`);
   const rows = data?.[ranking] || [];
   const sel = banco || rows[0]?.Codigo_Banco;
+  usePublicarSeleccion({ ranking, banco_codigo: sel || '', banco: rows.find((r) => r.Codigo_Banco === sel)?.Banco || '' });
   const selRow = rows.find((r) => r.Codigo_Banco === sel);
   const totalActividad = sumMoney(rows.map((r) => r.Saldo_Actividad));
 

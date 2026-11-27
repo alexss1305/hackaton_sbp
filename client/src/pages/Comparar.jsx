@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePublicarSeleccion } from '../asistenteContexto.js';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 import { api, qs } from '../api.js';
 import { ErrorBox, Loading, SortableTable, ChartTooltip, Trend } from '../components/ui.jsx';
@@ -95,6 +96,7 @@ export default function Comparar({ ctx }) {
   const nombreDe = (c) => meta.bancos.find((b) => b.codigo === c)?.nombre || c;
 
   const fechasOrd = useMemo(() => [...fechas].sort(), [fechas]);
+  usePublicarSeleccion({ fechas: fechasOrd, bancos: bancos.map(nombreDe), actividades: rankings, medida, grafico });
   const sinSeleccion = !fechas.length || !bancos.length || !rankings.length;
   useEffect(() => {
     if (sinSeleccion) return undefined;

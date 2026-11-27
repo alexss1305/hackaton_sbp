@@ -137,14 +137,18 @@ test('permisos editables: el Administrador quita y concede permisos por perfil',
   assert.equal((await fetch(`${base}/compare?desde=20260731&hasta=20260831`)).status, 403);
 });
 
-test('asistente de IA: requiere permiso y responde 503 claro si no hay clave configurada', async () => {
-  const body = JSON.stringify({ fecha: '20260831', pregunta: '¿Quién lidera HIPOTECARIO?' });
-  assert.equal((await fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, 403);
+test('asistente: disponible para Público por defecto; sin clave responde en modo guía según el perfil', async () => {
   if (process.env.GEMINI_API_KEY) return; // con clave real no se llama al servicio en las pruebas
-  const t = await login('analista', PW.analista);
-  const r = await fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body });
-  assert.equal(r.status, 503);
-  assert.match((await r.json()).error, /GEMINI_API_KEY/);
+  const pregunta = (q, h = {}) => fetch(`${base}/asistente`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...h }, body: JSON.stringify({ fecha: '20260831', pregunta: q, pantalla: 'panel' }) });
+  const pub = await pregunta('¿Cómo cargo un período nuevo?');
+  assert.equal(pub.status, 200);
+  const rp = await pub.json();
+  assert.equal(rp.modelo, 'guia');
+  assert.match(rp.respuesta, /requiere el perfil Administrador/);
+  const t = await login('administrador', PW.administrador);
+  const ra = await (await pregunta('¿Cómo cargo un período nuevo?', { Authorization: `Bearer ${t}` })).json();
+  assert.match(ra.respuesta, /Administración/);
+  assert.equal((await pregunta('')).status, 400);
 });
 
 test('consultas de operaciones: solo el administrador', async () => {

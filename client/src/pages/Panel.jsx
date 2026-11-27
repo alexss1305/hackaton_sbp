@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePublicarSeleccion } from '../asistenteContexto.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApi, ErrorBox, Loading, Kpi, ChartTooltip } from '../components/ui.jsx';
 import { Icon } from '../components/brand.jsx';
@@ -10,6 +11,7 @@ export default function Panel({ ctx }) {
   const { data, error, loading } = useApi(ctx.fecha ? `/periods/${ctx.fecha}/resumen` : null);
   const lista = useApi(ctx.fecha ? `/bancos?fecha=${ctx.fecha}` : null);
   const [abierto, setAbierto] = useState(null);
+  usePublicarSeleccion({ ficha_abierta_banco_codigo: abierto || '' });
   if (error) return <ErrorBox error={error} />;
   if (loading || !data) return <Loading />;
   const q = data.quality;
