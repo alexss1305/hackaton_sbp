@@ -9,6 +9,22 @@ con la entrada y completar el hash en el commit siguiente, o usar `git commit --
 
 ---
 
+## (pendiente) — Estilo institucional SBP y acceso en dos pasos
+**Fecha:** 2026-11-27 · **Autor:** margelinho
+
+**Motivo:** la interfaz se veía simple. Se eligió la dirección «Institucional» (paleta del sitio de la SBP) y se aplicaron los cambios pedidos al inicio de sesión.
+
+**Cambios**
+- **Estilo institucional** (`client/src/index.css`): paleta índigo, degradado azul-violeta y dorado; tipografía Plus Jakarta Sans; barra superior blanca con monograma, banner con degradado y líneas doradas, menú lateral con marca dorada, KPI y tarjetas con acento dorado. Se retiró el modo oscuro automático.
+- **Marca e íconos** (`client/src/components/brand.jsx`): monograma propio «SBP» (no es el logo oficial) e íconos de línea sin dependencias nuevas.
+- **Inicio de sesión en dos pasos** (`client/src/pages/Login.jsx`): «Público» o «Personal de la Superintendencia»; la segunda vista pide perfil (Analista/Administrador), usuario y contraseña. Título: «Ranking de Créditos · Superintendencia de Bancos de Panamá».
+- **Usuario + contraseña** (`server/src/api/auth.js`, `routes.js`, `scripts/setup-env.js`, `.env.example`): nuevas variables `ANALISTA_USER` y `ADMIN_USER` (por defecto `analista` y `admin`). Un `.env` anterior sigue funcionando.
+- **Aviso de datos sintéticos discreto:** se quitó el banner amarillo y el sello «DATOS FICTICIOS»; el aviso queda en el pie de cada pantalla y del informe (lámina 9 y criterio 4 siguen cubiertos).
+
+**Verificación:** `npm test` con 18 de 18 pruebas en verde (se agregaron casos de usuario incorrecto); compilación del frontend sin errores; recorrido en navegador: inicio, acceso del personal como Administrador, Panel y Rankings, sin errores en consola.
+
+---
+
 ## e3a2c92 — Cumplimiento del reto: validación por tipos, permisos editables, asistente IA y demo
 **Fecha:** 2026-11-27 · **Autor:** margelinho · **Archivos:** 27 (+771 / −70)
 

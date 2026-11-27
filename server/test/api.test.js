@@ -30,8 +30,9 @@ before(async () => {
 });
 after(() => { server?.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
 
-const login = async (perfil, password) => {
-  const r = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil, password }) });
+const USUARIO = { analista: 'analista', administrador: 'admin' };
+const login = async (perfil, password, usuario = USUARIO[perfil]) => {
+  const r = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil, usuario, password }) });
   return r.ok ? (await r.json()).token : null;
 };
 const upload = (token, nombre, body, extra = '') => fetch(`${base}/admin/periods?nombre=${nombre}${extra}`, {
@@ -51,6 +52,8 @@ test('público consulta y descarga, pero no compara ni carga', async () => {
 
 test('contraseña incorrecta es rechazada; analista compara pero no administra', async () => {
   assert.equal(await login('administrador', 'mala'), null);
+  assert.equal(await login('administrador', PW.administrador, 'otro-usuario'), null);
+  assert.equal(await login('administrador', PW.analista, 'analista'), null);
   const t = await login('analista', PW.analista);
   const auth = { headers: { Authorization: `Bearer ${t}` } };
   const cmp = await (await fetch(`${base}/compare?desde=20260731&hasta=20260831`, auth)).json();

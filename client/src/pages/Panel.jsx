@@ -24,7 +24,7 @@ export default function Panel({ ctx }) {
         <Kpi label="Cartera local válida" value={fmtCompact(q.Saldo_Universo_Local_Valido)} hint={fmtMoney(q.Saldo_Universo_Local_Valido)} />
         <Kpi label="Operaciones válidas" value={fmtInt(q.Universo_Local_Valido)} hint={`de ${fmtInt(q.Filas_Leidas)} filas leídas`} />
         <Kpi label="Filas excluidas (E1–E4)" value={fmtInt(excluidas)} hint={`${fmtPct((excluidas / q.Filas_Leidas) * 100, 2)} del archivo`} />
-        <Kpi label="Bancos" value={data.carteraBancos.length} hint="Licencia general (ficticios)" />
+        <Kpi label="Bancos" value={data.carteraBancos.length} hint="Licencia general" />
         <Kpi label="Reconciliaciones" value={q.Reconciliacion_1 && q.Reconciliacion_2 && q.Reconciliacion_3 ? '✓ Cuadran' : '✕ Revisar'} hint="Al centavo" />
       </div>
 

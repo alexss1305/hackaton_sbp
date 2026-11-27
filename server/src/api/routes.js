@@ -26,10 +26,10 @@ export function buildRouter(store, passwords) {
 
   // ---------- Sesión ----------
   r.post('/auth/login', express.json(), (req, res) => {
-    const { perfil, password } = req.body || {};
-    const token = login(passwords, perfil, password);
-    if (!token) return res.status(401).json({ error: 'Perfil o contraseña incorrectos.' });
-    store.addLog(perfil, 'Inicio de sesión', `Perfil ${PERFILES[perfil].nombre}`);
+    const { perfil, password, usuario } = req.body || {};
+    const token = login(passwords, perfil, password, usuario);
+    if (!token) return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
+    store.addLog(perfil, 'Inicio de sesión', `Perfil ${PERFILES[perfil].nombre}${usuario ? ` · usuario ${String(usuario).trim().toLowerCase()}` : ''}`);
     res.json({ token, perfil, nombre: PERFILES[perfil].nombre });
   });
   r.post('/auth/logout', (req, res) => { if (req.token) logout(req.token); res.json({ ok: true }); });

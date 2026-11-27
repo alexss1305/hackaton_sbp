@@ -161,7 +161,7 @@ export default function Reportes({ ctx }) {
             <article className="report" aria-label="Vista previa del reporte">
               <ReportHeader titulo={titulo} fecha={fecha} desde={conMovs ? desde : null} perfil={perfilNombre} fuente={meta.fuente} />
               {secs.length ? secs : <p className="r-foot">Seleccione al menos una sección.</p>}
-              <footer className="r-footer">Rankings de Crédito · Hackathon SBP 2026 · Datos ficticios · Cálculo reproducible desde archivos AT03</footer>
+              <footer className="r-footer">Ranking de Créditos · Superintendencia de Bancos de Panamá · Cálculo reproducible desde archivos AT03 · Datos sintéticos, uso informativo</footer>
             </article>
           )}
         </div>

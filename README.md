@@ -9,7 +9,7 @@ usuario y exportaciones. **Todos los datos son ficticios.**
 
 ## Instalación y ejecución
 ```bash
-npm run setup      # instala dependencias y crea .env con contraseñas aleatorias (se muestran en consola)
+npm run setup      # instala dependencias y crea .env con usuarios y contraseñas aleatorias (se muestran en consola)
 npm run build      # compila el frontend React
 npm start          # abre http://127.0.0.1:3001
 ```
@@ -26,12 +26,13 @@ Otros comandos:
 | Perfil | Acceso | Opciones |
 |---|---|---|
 | Público | sin contraseña | Panel, rankings, filtros y subactividades, calidad de datos, reportes con PDF, descargas (rankings, subactividades, calidad) |
-| Analista | `ANALISTA_PASSWORD` en `.env` | + comparar períodos y entidades, movimientos con explicación, asistente de IA, descargas de movimientos, filas excluidas y alertas |
-| Administrador | `ADMIN_PASSWORD` en `.env` | Todo lo anterior + cargar/actualizar/retirar períodos, parámetros de movimiento significativo, catálogos, **perfiles y permisos**, bitácora de operaciones |
+| Analista | *Personal de la Superintendencia*: `ANALISTA_USER` / `ANALISTA_PASSWORD` en `.env` (usuario por defecto `analista`) | + comparar períodos y entidades, movimientos con explicación, asistente de IA, descargas de movimientos, filas excluidas y alertas |
+| Administrador | *Personal de la Superintendencia*: `ADMIN_USER` / `ADMIN_PASSWORD` en `.env` (usuario por defecto `admin`) | Todo lo anterior + cargar/actualizar/retirar períodos, parámetros de movimiento significativo, catálogos, **perfiles y permisos**, bitácora de operaciones |
 
 Los permisos de Público y Analista son **editables** por el Administrador (*Administración → Perfiles y permisos*, guardados en `data/permisos.json`); la tabla anterior muestra los valores por defecto. Las funciones de Administrador no se pueden delegar.
 El control se aplica **en el servidor** (middleware `permiso(...)` en cada ruta); el frontend solo oculta lo que el perfil no puede usar.
-`.env` no se versiona (`.gitignore`); si no existe, el servidor genera contraseñas temporales y las muestra en consola.
+El inicio de sesión tiene dos pasos: **Público** entra directo; **Personal de la Superintendencia** abre una segunda vista donde se elige Analista o Administrador y se ingresa usuario y contraseña.
+`.env` no se versiona (`.gitignore`); si falta una contraseña, el servidor genera una temporal y la muestra en consola.
 
 ### Asistente de IA (opcional)
 Agregue `ANTHROPIC_API_KEY=...` a `.env` y reinicie el servidor para habilitar *Asistente IA*. El asistente (`server/src/api/asistente.js`, modelo `claude-opus-5-5`) recibe **solo los resultados ya calculados** del período (rankings, subactividades, calidad, movimientos, indicadores) y tiene instrucciones de no inventar ni recalcular cifras: **explica, no calcula** (Sección 9 del reto). Usa el respaldo automático del servicio ante rechazos (`fallbacks: "default"`). Sin clave, la pantalla indica cómo habilitarlo y el resto de la plataforma funciona igual.

@@ -11,19 +11,20 @@ import Calidad from './pages/Calidad.jsx';
 import Reportes from './pages/Reportes.jsx';
 import Admin from './pages/Admin.jsx';
 import Asistente from './pages/Asistente.jsx';
+import { Icon, Monogram } from './components/brand.jsx';
 
 const NIVEL = { publico: 1, analista: 2, administrador: 3 };
 
 /** Módulos y el perfil mínimo que los ve (lámina 5 y lámina 6). */
 const PAGES = [
-  { id: 'panel', label: 'Panel principal', min: 'publico', group: 'Consulta', C: Panel },
-  { id: 'rankings', label: 'Rankings', min: 'publico', group: 'Consulta', C: Rankings },
-  { id: 'explorar', label: 'Filtros y subactividades', min: 'publico', group: 'Consulta', C: Explorar },
-  { id: 'calidad', label: 'Calidad de datos', min: 'publico', group: 'Consulta', C: Calidad },
-  { id: 'reportes', label: 'Reportes y descargas', min: 'publico', group: 'Consulta', C: Reportes },
-  { id: 'comparar', label: 'Comparar períodos', min: 'publico', permiso: 'comparar_periodos', group: 'Análisis', C: Comparar },
-  { id: 'asistente', label: 'Asistente IA', min: 'publico', permiso: 'asistente_ia', group: 'Análisis', C: Asistente },
-  { id: 'admin', label: 'Administración', min: 'administrador', group: 'Control', C: Admin },
+  { id: 'panel', label: 'Panel principal', icon: 'dashboard', min: 'publico', group: 'Consulta', C: Panel },
+  { id: 'rankings', label: 'Rankings', icon: 'trophy', min: 'publico', group: 'Consulta', C: Rankings },
+  { id: 'explorar', label: 'Filtros y subactividades', icon: 'filter', min: 'publico', group: 'Consulta', C: Explorar },
+  { id: 'calidad', label: 'Calidad de datos', icon: 'check', min: 'publico', group: 'Consulta', C: Calidad },
+  { id: 'reportes', label: 'Reportes y descargas', icon: 'download', min: 'publico', group: 'Consulta', C: Reportes },
+  { id: 'comparar', label: 'Comparar períodos', icon: 'compare', min: 'publico', permiso: 'comparar_periodos', group: 'Análisis', C: Comparar },
+  { id: 'asistente', label: 'Asistente IA', icon: 'spark', min: 'publico', permiso: 'asistente_ia', group: 'Análisis', C: Asistente },
+  { id: 'admin', label: 'Administración', icon: 'settings', min: 'administrador', group: 'Control', C: Admin },
 ];
 
 export default function App() {
@@ -66,29 +67,34 @@ export default function App() {
   const ctx = { meta, fecha, setFecha, perfil: user.perfil, perfilNombre: user.nombre, nivel: NIVEL[user.perfil], puede, reloadMeta: loadMeta, goTo: setPage };
   const Page = current.C;
 
+  const iniciales = user.nombre.slice(0, 2).toUpperCase();
+
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="title">
-          <strong>Rankings de Crédito por Actividad Económica</strong>
-          <span>Hackathon SBP 2026 · Plataforma de consulta y análisis bancario</span>
-        </div>
+      <header className="topnav">
+        <Monogram title="Ranking de Créditos" subtitle="Superintendencia de Bancos de Panamá" />
         {meta && meta.periodos.length > 0 && (
-          <label className="field" style={{ color: '#fff' }}>
-            <span style={{ color: 'rgba(255,255,255,.8)' }}>Período</span>
+          <label className="period-select">
+            <Icon name="calendar" />
             <select value={fecha} onChange={(e) => setFecha(e.target.value)} aria-label="Período">
-              {meta.periodos.map((p) => <option key={p.fecha} value={p.fecha}>{fmtPeriodo(p.fecha)} ({p.fecha})</option>)}
+              {meta.periodos.map((p) => <option key={p.fecha} value={p.fecha}>{fmtPeriodo(p.fecha)}</option>)}
             </select>
           </label>
         )}
-        <div className="profile-chip">Perfil <b>{user.nombre}</b></div>
-        <button className="btn" onClick={logout}>Cambiar perfil</button>
+        <div className="user-chip">
+          <span className="avatar">{iniciales}</span>
+          <span><b>{user.nombre}</b><button className="btn link" onClick={logout}><Icon name="logout" />Cerrar sesión</button></span>
+        </div>
       </header>
 
-      <div className="disclaimer" role="note">
-        <b>⚠ Datos ficticios.</b>
-        <span>Fuente: datos sintéticos AT03 suministrados por la SBP para el Hackathon 2026{fecha ? ` · Período mostrado: ${fmtPeriodo(fecha)} (Fecha ${fecha})` : ''}. Bancos y clientes no son reales; uso informativo, no constituye opinión formal de la SBP.</span>
-      </div>
+      <section className="banner">
+        <div className="crumb">Inicio / {current.group} / {current.label}</div>
+        <h1>Ranking de Créditos por Actividad Económica</h1>
+        <div className="banner-meta">
+          {fecha && <span className="chip-dark"><Icon name="calendar" />{fmtPeriodo(fecha)} · Fecha {fecha}</span>}
+          <span className="chip-dark"><Icon name="table" />Fuente: archivos AT03</span>
+        </div>
+      </section>
 
       <div className="body">
         <nav className="side" aria-label="Módulos">
@@ -100,7 +106,7 @@ export default function App() {
                 <div className="group">{g}</div>
                 {items.map((p) => (
                   <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => setPage(p.id)} aria-current={p.id === current.id ? 'page' : undefined}>
-                    {p.label}
+                    <Icon name={p.icon} />{p.label}
                   </button>
                 ))}
               </div>
@@ -117,7 +123,11 @@ export default function App() {
         </main>
       </div>
       <footer>
-        Cálculo determinista y reproducible desde los archivos AT03 y los catálogos CINU/SB109, SB21 y bancos. {meta && `Último cálculo: ${new Date(meta.calculadoEn).toLocaleString('es-PA')}.`}
+        <span>
+          Fuente: archivos AT03{fecha ? ` · Período ${fmtPeriodo(fecha)} (Fecha ${fecha})` : ''} · Cálculo determinista desde los catálogos CINU/SB109, SB21 y bancos.
+          {meta && ` Último cálculo: ${new Date(meta.calculadoEn).toLocaleString('es-PA')}.`}
+        </span>
+        <span className="footer-note"><Icon name="info" />Datos sintéticos · Uso informativo, no constituye opinión de la SBP</span>
       </footer>
     </div>
   );

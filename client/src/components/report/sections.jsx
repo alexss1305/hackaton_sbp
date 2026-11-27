@@ -33,14 +33,13 @@ export function ReportHeader({ titulo, fecha, desde, perfil, fuente }) {
     <header className="r-header">
       <div className="r-brand">
         <div>
-          <div className="r-kicker">Hackathon SBP 2026 · Rankings de crédito por actividad económica</div>
+          <div className="r-kicker">Superintendencia de Bancos de Panamá · Ranking de créditos por actividad económica</div>
           <h1>{titulo}</h1>
           <div className="r-meta">
             Período: <b>{fmtPeriodo(fecha)}</b> (Fecha {fecha}){desde ? <> · Comparado con <b>{fmtPeriodo(desde)}</b></> : null}
             {' '}· Generado: {new Date().toLocaleString('es-PA')} · Perfil: {perfil}
           </div>
         </div>
-        <div className="r-stamp">DATOS<br />FICTICIOS</div>
       </div>
       <p className="r-disclaimer">{fuente}</p>
     </header>
